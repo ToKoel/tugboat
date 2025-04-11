@@ -195,7 +195,6 @@ async fn start_ui(app_state: SharedState) -> Result<(), io::Error> {
                         }
                         _ => {}
                     },
-                    _ => {}
                 }
             }
         }

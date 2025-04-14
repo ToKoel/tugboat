@@ -6,7 +6,6 @@ use strip_ansi_escapes::strip;
 
 pub async fn fetch_logs(container_id: &str) -> Result<Vec<String>, Box<dyn Error>> {
     let docker = Docker::new();
-    let docker = docker.clone();
     let mut log_stream = docker
         .containers()
         .get(container_id)
@@ -75,5 +74,5 @@ pub async fn get_container_data() -> Result<Vec<(String, Vec<String>)>, Box<dyn 
             }
         }))
         .await;
-    return Ok(container_data);
+    Ok(container_data)
 }

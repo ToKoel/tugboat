@@ -243,13 +243,7 @@ fn draw_normal_mode(f: &mut Frame, area: Rect, app_state: &AppState) {
         })
         .collect();
 
-    let widths = [
-        Constraint::Min(10),
-        Constraint::Min(10),
-        Constraint::Min(10),
-        Constraint::Min(10),
-        Constraint::Min(10),
-    ];
+    let widths = [Constraint::Min(10); 5];
 
     let table = Table::new(rows, widths)
         .header(

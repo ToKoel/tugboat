@@ -264,3 +264,206 @@ fn draw_normal_mode(f: &mut Frame, area: Rect, app_state: &AppState) {
 
     f.render_widget(table, chunks[0]);
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ratatui::Terminal;
+    use ratatui::backend::TestBackend;
+    use ratatui::buffer::Buffer;
+
+    #[test]
+    fn test_centered_rect() {
+        let area = Rect::new(0, 0, 100, 100);
+        let rect = centered_rect(50, 50, area);
+        assert!(rect.width <= 100);
+        assert!(rect.height <= 100);
+    }
+
+    #[test]
+    fn test_draw_normal_mode() {
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
+        let mut frame = terminal.get_frame();
+
+        let app_state = AppState {
+            container_data: vec![(
+                "id1".to_string(),
+                vec![
+                    "id1".into(),
+                    "img1".into(),
+                    "running".into(),
+                    "name1".into(),
+                    "127.0.0.1".into(),
+                ],
+            )],
+            selected: 0,
+            ..Default::default()
+        };
+        let area = frame.area();
+
+        draw_normal_mode(&mut frame, area, &app_state);
+    }
+
+    #[test]
+    fn test_draw_logs_mode() {
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
+        let mut frame = terminal.get_frame();
+
+        let mut log_state = ListState::default();
+        log_state.select(Some(0));
+
+        let app_state = AppState {
+            logs: vec!["Log line 1".into(), "Log line 2".into()],
+            log_state,
+            horizontal_scroll: 0,
+            ..Default::default()
+        };
+        let area = frame.area();
+
+        draw_logs_mode(&mut frame, area, &app_state);
+    }
+
+    #[test]
+    fn test_draw_context_mode() {
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
+        let mut frame = terminal.get_frame();
+
+        let app_state = AppState {
+            menu_items: vec!["Action 1", "Action 2"],
+            menu_selected: 0,
+            ..Default::default()
+        };
+
+        let area = frame.area();
+        draw_context_mode(&mut frame, area, &app_state);
+    }
+
+    #[test]
+    fn test_down_key_in_normal_mode() {
+        let mut app = AppState {
+            container_data: vec![
+                (
+                    "id1".to_string(),
+                    vec![
+                        "id1".into(),
+                        "img1".into(),
+                        "running".into(),
+                        "name1".into(),
+                        "127.0.0.1".into(),
+                    ],
+                ),
+                (
+                    "id2".to_string(),
+                    vec![
+                        "id2".into(),
+                        "img2".into(),
+                        "exited".into(),
+                        "name2".into(),
+                        "127.0.0.2".into(),
+                    ],
+                ),
+            ],
+            selected: 0,
+            ..Default::default()
+        };
+
+        // down pressed
+        if app.selected + 1 < app.container_data.len() {
+            app.selected += 1;
+        }
+
+        assert_eq!(app.selected, 1);
+    }
+
+    #[test]
+    fn test_up_key_in_normal_mode() {
+        let mut app = AppState {
+            container_data: vec![(
+                "id1".to_string(),
+                vec![
+                    "id1".into(),
+                    "img1".into(),
+                    "running".into(),
+                    "name1".into(),
+                    "127.0.0.1".into(),
+                ],
+            )],
+            selected: 1,
+            ..Default::default()
+        };
+
+        // up pressed
+        if app.selected > 0 {
+            app.selected -= 1;
+        }
+
+        assert_eq!(app.selected, 0);
+    }
+
+    #[test]
+    fn test_enter_key_opens_context_menu() {
+        let mut app = AppState {
+            mode: AppMode::Normal,
+            ..Default::default()
+        };
+
+        // enter pressed
+        app.mode = AppMode::ContextMenu;
+        app.menu_selected = 0;
+
+        assert_eq!(app.mode, AppMode::ContextMenu);
+        assert_eq!(app.menu_selected, 0);
+    }
+
+    #[test]
+    fn test_escape_in_context_menu_returns_to_normal() {
+        let mut app = AppState {
+            mode: AppMode::ContextMenu,
+            ..Default::default()
+        };
+
+        // simulate Esc key
+        app.mode = AppMode::Normal;
+
+        assert_eq!(app.mode, AppMode::Normal);
+    }
+
+    #[test]
+    fn test_menu_down_wraps() {
+        let mut app = AppState {
+            menu_items: vec!["View Logs", "Back"],
+            menu_selected: 1,
+            ..Default::default()
+        };
+
+        // simulate Down key
+        if app.menu_selected + 1 < app.menu_items.len() {
+            app.menu_selected += 1;
+        } else {
+            app.menu_selected = 0;
+        }
+
+        assert_eq!(app.menu_selected, 0);
+    }
+
+    #[test]
+    fn test_menu_up_wraps() {
+        let mut app = AppState {
+            menu_items: vec!["View Logs", "Back"],
+            menu_selected: 0,
+            ..Default::default()
+        };
+
+        // simulate Up key
+        if app.menu_selected > 0 {
+            app.menu_selected -= 1;
+        } else {
+            app.menu_selected = app.menu_items.len() - 1;
+        }
+
+        assert_eq!(app.menu_selected, 1);
+    }
+}

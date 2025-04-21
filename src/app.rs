@@ -3,7 +3,7 @@ use std::sync::Arc;
 use ratatui::widgets::ListState;
 use tokio::sync::RwLock;
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub enum AppMode {
     #[default]
     Normal,

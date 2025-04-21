@@ -283,9 +283,10 @@ mod tests {
         let mock = MockDockerApi;
         let data = get_container_data_with_api(&mock).await.unwrap();
         assert_eq!(data.len(), 1);
-        assert_eq!(data[0].1[0], "mock_id_1234".to_string());
+        assert_eq!(data[0].1[0], "mock_id_1234");
         assert_eq!(data[0].1[1], "mock_image");
         assert_eq!(data[0].1[2], "running");
         assert_eq!(data[0].1[3], "/mock_container");
+        assert_eq!(data[0].1[4], "172.17.0.2");
     }
 }

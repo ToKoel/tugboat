@@ -135,7 +135,7 @@ mod tests {
     use async_trait::async_trait;
     use futures::stream;
     use shiplift::tty::TtyChunk;
-    use std::collections::HashMap;
+    use std::{collections::HashMap, vec};
 
     struct MockDockerApi;
 
@@ -145,7 +145,7 @@ mod tests {
             &self,
         ) -> Result<Vec<shiplift::rep::Container>, Box<dyn std::error::Error>> {
             Ok(vec![shiplift::rep::Container {
-                id: "mock_id".to_string(),
+                id: "mock_id_1234567891".to_string(),
                 image: "mock_image".to_string(),
                 names: vec!["/mock_container".to_string()],
                 status: "running".to_string(),
@@ -195,7 +195,74 @@ mod tests {
                         );
                         networks
                     },
+                    bridge: "".to_string(),
+                    gateway: "".to_string(),
+                    ip_prefix_len: 0,
+                    ip_address: "".to_string(),
+                    mac_address: "".to_string(),
+                    ports: None,
                 },
+                app_armor_profile: "".to_string(),
+                args: vec![],
+                config: shiplift::rep::Config {
+                    attach_stdout: false,
+                    attach_stdin: false,
+                    cmd: None,
+                    attach_stderr: false,
+                    domainname: "".to_string(),
+                    entrypoint: None,
+                    env: None,
+                    exposed_ports: None,
+                    hostname: "".to_string(),
+                    image: "".to_string(),
+                    labels: None,
+                    on_build: None,
+                    open_stdin: false,
+                    stdin_once: false,
+                    tty: false,
+                    user: "".to_string(),
+                    working_dir: "".to_string(),
+                },
+                created: chrono::prelude::Utc::now(),
+                driver: "".to_string(),
+                image: "".to_string(),
+                id: "mock_id_1234567891".to_string(),
+                restart_count: 0,
+                resolv_conf_path: "".to_string(),
+                process_label: "".to_string(),
+                path: "".to_string(),
+                log_path: "".to_string(),
+                hosts_path: "".to_string(),
+                hostname_path: "".to_string(),
+                state: shiplift::rep::State {
+                    error: "".to_string(),
+                    exit_code: 0,
+                    finished_at: chrono::prelude::Utc::now(),
+                    oom_killed: false,
+                    restarting: false,
+                    paused: false,
+                    pid: 0,
+                    running: true,
+                    started_at: chrono::prelude::Utc::now(),
+                    status: "".to_string(),
+                },
+                host_config: shiplift::rep::HostConfig {
+                    cgroup_parent: None,
+                    container_id_file: "".to_string(),
+                    cpuset_cpus: None,
+                    cpu_shares: None,
+                    memory: None,
+                    memory_swap: None,
+                    pid_mode: None,
+                    network_mode: "".to_string(),
+                    port_bindings: None,
+                    privileged: false,
+                    publish_all_ports: false,
+                    readonly_rootfs: None,
+                },
+                mount_label: "".to_string(),
+                name: "test".to_string(),
+                mounts: vec![],
             })
         }
     }
@@ -203,7 +270,9 @@ mod tests {
     #[tokio::test]
     async fn test_fetch_logs() {
         let mock = MockDockerApi;
-        let logs = fetch_logs_with_api(&mock, "mock_id").await.unwrap();
+        let logs = fetch_logs_with_api(&mock, "mock_id_1234567891")
+            .await
+            .unwrap();
         assert_eq!(logs.len(), 2);
         assert!(logs[0].contains("Log line 1"));
         assert!(logs[1].contains("Log line 2"));
@@ -214,7 +283,7 @@ mod tests {
         let mock = MockDockerApi;
         let data = get_container_data_with_api(&mock).await.unwrap();
         assert_eq!(data.len(), 1);
-        assert_eq!(data[0].1[0], "mock_id".to_string()[..12]);
+        assert_eq!(data[0].1[0], "mock_id_1234".to_string());
         assert_eq!(data[0].1[1], "mock_image");
     }
 }

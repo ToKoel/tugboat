@@ -285,5 +285,7 @@ mod tests {
         assert_eq!(data.len(), 1);
         assert_eq!(data[0].1[0], "mock_id_1234".to_string());
         assert_eq!(data[0].1[1], "mock_image");
+        assert_eq!(data[0].1[2], "running");
+        assert_eq!(data[0].1[3], "/mock_container");
     }
 }

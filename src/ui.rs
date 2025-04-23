@@ -16,6 +16,7 @@ use ratatui::{
         ScrollbarState, Table,
     },
 };
+use tokio::sync::mpsc;
 
 use crate::{
     app::{Action, AppMode, AppState, SharedState},
@@ -29,6 +30,20 @@ pub async fn start_ui(app_state: SharedState) -> Result<(), io::Error> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
+    let (tx, mut rx) = mpsc::channel(100);
+
+    tokio::spawn(async move {
+        loop {
+            if event::poll(Duration::from_millis(50)).unwrap() {
+                if let Ok(evt) = event::read() {
+                    if tx.send(evt).await.is_err() {
+                        break;
+                    }
+                }
+            }
+        }
+    });
+
     loop {
         {
             let app = app_state.read().await;
@@ -37,11 +52,10 @@ pub async fn start_ui(app_state: SharedState) -> Result<(), io::Error> {
             })?;
         }
 
-        if event::poll(Duration::from_millis(200))? {
-            if let Event::Key(key) = event::read()? {
-                let mut app = app_state.write().await;
-
-                match app.handle_input(key.code) {
+        if let Some(event) = rx.recv().await {
+            let mut app = app_state.write().await;
+            if let Event::Key(key_event) = event {
+                match app.handle_input(key_event.code) {
                     Action::Exit => break,
                     Action::Continue => {
                         if app.mode == AppMode::Logs

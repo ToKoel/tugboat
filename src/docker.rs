@@ -119,7 +119,6 @@ async fn flush_buffer(
     }
 
     let mut app = app_state.write().await;
-    let old_logs_len = app.logs.len();
     app.logs.append(buffer);
     let number_of_log_lines = app.logs.len();
 
@@ -130,8 +129,6 @@ async fn flush_buffer(
         }
         *new_lines_since_cleanup = 0;
     }
-
-    let visible_height = 15;
 }
 
 pub async fn fetch_logs(container_id: &str) -> Result<Vec<String>, Box<dyn Error>> {

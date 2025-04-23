@@ -121,7 +121,7 @@ impl AppState {
                     }
                 }
                 KeyCode::Char('G') => {
-                    self.vertical_scroll = self.logs.len() as u16;
+                    self.vertical_scroll = self.logs.len().saturating_sub(15) as u16;
                     self.user_scrolled_up = false;
                 }
                 _ => {}

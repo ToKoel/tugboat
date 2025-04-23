@@ -122,6 +122,14 @@ async fn flush_buffer(
     app.logs.append(buffer);
     let number_of_log_lines = app.logs.len();
 
+    if !app.user_scrolled {
+        if number_of_log_lines > app.visible_height as usize {
+            app.vertical_scroll = (number_of_log_lines - app.visible_height as usize) as u16;
+        } else {
+            app.vertical_scroll = 0;
+        }
+    }
+
     if *new_lines_since_cleanup >= CLEANUP_THRESHOLD {
         if number_of_log_lines > MAX_LOG_LINES {
             let excess = number_of_log_lines - MAX_LOG_LINES;

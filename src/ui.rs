@@ -1,5 +1,5 @@
 use std::{
-    io::{self, Write},
+    io::{self},
     time::Duration,
 };
 
@@ -19,7 +19,6 @@ use ratatui::{
         ScrollbarState, Table,
     },
 };
-use tokio::sync::mpsc;
 
 use crate::{
     app::{Action, AppMode, AppState, SharedState},
@@ -33,20 +32,6 @@ pub async fn start_ui(app_state: SharedState) -> Result<(), io::Error> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    let (tx, mut rx) = mpsc::channel(100);
-
-    let input_handle = tokio::spawn(async move {
-        loop {
-            if event::poll(Duration::from_millis(50)).unwrap() {
-                if let Ok(evt) = event::read() {
-                    if tx.send(evt).await.is_err() {
-                        break;
-                    }
-                }
-            }
-        }
-    });
-
     loop {
         {
             let app = app_state.read().await;
@@ -55,9 +40,9 @@ pub async fn start_ui(app_state: SharedState) -> Result<(), io::Error> {
             })?;
         }
 
-        if let Some(event) = rx.recv().await {
+        if event::poll(Duration::from_millis(200))? {
             let mut app = app_state.write().await;
-            if let Event::Key(key_event) = event {
+            if let Event::Key(key_event) = event::read()? {
                 match app.handle_input(key_event.code) {
                     Action::Exit => break,
                     Action::Continue => {
@@ -66,6 +51,10 @@ pub async fn start_ui(app_state: SharedState) -> Result<(), io::Error> {
                         {
                             terminal.draw(|f| {
                                 draw_ui(f, &app);
+                                let area = f.area();
+                                let overlay_area = centered_rect(80, 80, area);
+                                let visible_height = overlay_area.height.saturating_sub(2);
+                                app.visible_height = visible_height;
                             })?;
 
                             let container_id = app.container_data[app.selected].0.clone();
@@ -81,7 +70,6 @@ pub async fn start_ui(app_state: SharedState) -> Result<(), io::Error> {
         }
     }
 
-    input_handle.abort();
     terminal.clear()?;
     let mut stdout = io::stdout();
     execute!(stdout, LeaveAlternateScreen, DisableMouseCapture)?;
@@ -139,16 +127,6 @@ fn draw_logs_mode(f: &mut Frame, area: Rect, app_state: &AppState) {
     let image_name = app_state.container_data[app_state.selected].1[1].clone();
 
     let overlay_area = centered_rect(80, 80, area);
-    let visible_height = overlay_area.height.saturating_sub(2);
-    let effective_vertical_scroll = if !app_state.user_scrolled {
-        if logs_len > visible_height as usize {
-            (logs_len - visible_height as usize) as u16
-        } else {
-            0
-        }
-    } else {
-        app_state.vertical_scroll
-    };
 
     let paragraph = Paragraph::new(log_spans)
         .block(
@@ -157,11 +135,11 @@ fn draw_logs_mode(f: &mut Frame, area: Rect, app_state: &AppState) {
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Cyan)),
         )
-        .scroll((effective_vertical_scroll, app_state.horizontal_scroll));
+        .scroll((app_state.vertical_scroll, app_state.horizontal_scroll));
 
     let scrollbar = Scrollbar::new(ratatui::widgets::ScrollbarOrientation::VerticalRight);
     let mut scrollbar_state =
-        ScrollbarState::new(logs_len).position(effective_vertical_scroll.into());
+        ScrollbarState::new(logs_len).position(app_state.vertical_scroll.into());
 
     f.render_widget(Clear, overlay_area);
     f.render_widget(paragraph, overlay_area);

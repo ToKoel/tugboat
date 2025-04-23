@@ -337,16 +337,12 @@ mod tests {
         let mut terminal = Terminal::new(backend).unwrap();
         let mut frame = terminal.get_frame();
 
-        let mut log_state = ListState::default();
-        log_state.select(Some(0));
-
         let app_state = AppState {
             container_data: vec![(
                 "id1".to_string(),
                 vec!["id1".to_string(), "image_name".to_string()],
             )],
             logs: vec!["Log line 1".into(), "Log line 2".into()],
-            log_state,
             horizontal_scroll: 0,
             ..Default::default()
         };

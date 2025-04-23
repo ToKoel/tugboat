@@ -25,7 +25,6 @@ pub struct AppState {
     pub mode: AppMode,
     pub menu_selected: usize,
     pub logs: Vec<String>,
-    pub log_state: ListState,
     #[default(_code = "vec![\"Show Logs\", \"Restart\"]")]
     pub menu_items: Vec<&'static str>,
     pub horizontal_scroll: u16,
@@ -78,7 +77,6 @@ impl AppState {
                     0 => {
                         self.mode = AppMode::Logs;
                         self.logs = vec!["Loading logs...".to_string()];
-                        self.log_state.select(Some(0));
                     }
                     1 => {
                         self.mode = AppMode::Normal;
@@ -95,30 +93,18 @@ impl AppState {
                     self.mode = AppMode::Normal;
                 }
                 KeyCode::Left | KeyCode::Char('h') => {
-                    if self.horizontal_scroll > 0 {
-                        self.horizontal_scroll -= 10;
-                    }
+                    self.horizontal_scroll = self.horizontal_scroll.saturating_sub(10);
                 }
                 KeyCode::Right | KeyCode::Char('l') => {
-                    self.horizontal_scroll += 10;
+                    self.horizontal_scroll = self.horizontal_scroll.saturating_add(10);
                 }
                 KeyCode::Down | KeyCode::Char('j') => {
-                    self.vertical_scroll += 1;
+                    self.vertical_scroll = self.vertical_scroll.saturating_add(1);
                     self.user_scrolled_up = true;
-                    let selected = self.log_state.selected();
-                    if selected.unwrap_or(0) + 1 < self.logs.len() {
-                        self.log_state.select(Some(selected.unwrap_or(0) + 1));
-                    }
                 }
                 KeyCode::Up | KeyCode::Char('k') => {
-                    if self.vertical_scroll > 0 {
-                        self.vertical_scroll -= 1;
-                    }
+                    self.vertical_scroll = self.vertical_scroll.saturating_sub(1);
                     self.user_scrolled_up = true;
-                    let selected = self.log_state.selected();
-                    if selected.unwrap_or(0) > 0 {
-                        self.log_state.select(Some(selected.unwrap_or(0) - 1));
-                    }
                 }
                 KeyCode::Char('G') => {
                     self.vertical_scroll = self.logs.len().saturating_sub(15) as u16;

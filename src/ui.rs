@@ -1,4 +1,7 @@
-use std::{io, time::Duration};
+use std::{
+    io::{self, Write},
+    time::Duration,
+};
 
 use ratatui::{
     Frame, Terminal,
@@ -86,6 +89,7 @@ pub async fn start_ui(app_state: SharedState) -> Result<(), io::Error> {
         DisableMouseCapture
     )?;
     terminal.show_cursor()?;
+    terminal.backend_mut().flush()?;
     Ok(())
 }
 

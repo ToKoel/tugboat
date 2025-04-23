@@ -148,7 +148,11 @@ fn draw_logs_mode(f: &mut Frame, area: Rect, app_state: &AppState) {
         app_state.vertical_scroll
     };
 
-    let vertical_scroll = (logs_len - visible_height as usize) as u16;
+    let vertical_scroll = if logs_len > visible_height as usize {
+        (logs_len - visible_height as usize) as u16
+    } else {
+        0
+    };
 
     let paragraph = Paragraph::new(log_spans)
         .block(

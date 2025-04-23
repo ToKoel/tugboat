@@ -82,14 +82,11 @@ pub async fn start_ui(app_state: SharedState) -> Result<(), io::Error> {
     }
 
     input_handle.abort();
+    terminal.clear()?;
+    let mut stdout = io::stdout();
+    execute!(stdout, LeaveAlternateScreen, DisableMouseCapture)?;
     disable_raw_mode()?;
-    execute!(
-        terminal.backend_mut(),
-        LeaveAlternateScreen,
-        DisableMouseCapture
-    )?;
     terminal.show_cursor()?;
-    terminal.backend_mut().flush()?;
     Ok(())
 }
 

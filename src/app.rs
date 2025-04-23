@@ -31,6 +31,7 @@ pub struct AppState {
     pub horizontal_scroll: u16,
     pub vertical_scroll: u16,
     pub log_task: Option<JoinHandle<()>>,
+    #[default = false]
     pub user_scrolled_up: bool,
 }
 
@@ -118,6 +119,10 @@ impl AppState {
                     if selected.unwrap_or(0) > 0 {
                         self.log_state.select(Some(selected.unwrap_or(0) - 1));
                     }
+                }
+                KeyCode::Char('G') => {
+                    self.vertical_scroll = self.logs.len() as u16;
+                    self.user_scrolled_up = false;
                 }
                 _ => {}
             },

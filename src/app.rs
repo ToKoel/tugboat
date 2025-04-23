@@ -31,7 +31,7 @@ pub struct AppState {
     pub vertical_scroll: u16,
     pub log_task: Option<JoinHandle<()>>,
     #[default = false]
-    pub user_scrolled_up: bool,
+    pub user_scrolled: bool,
 }
 
 pub type SharedState = Arc<RwLock<AppState>>;
@@ -100,15 +100,15 @@ impl AppState {
                 }
                 KeyCode::Down | KeyCode::Char('j') => {
                     self.vertical_scroll = self.vertical_scroll.saturating_add(1);
-                    self.user_scrolled_up = true;
+                    self.user_scrolled = true;
                 }
                 KeyCode::Up | KeyCode::Char('k') => {
                     self.vertical_scroll = self.vertical_scroll.saturating_sub(1);
-                    self.user_scrolled_up = true;
+                    self.user_scrolled = true;
                 }
                 KeyCode::Char('G') => {
                     self.vertical_scroll = self.logs.len().saturating_sub(15) as u16;
-                    self.user_scrolled_up = false;
+                    self.user_scrolled = false;
                 }
                 _ => {}
             },

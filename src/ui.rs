@@ -32,9 +32,9 @@ pub async fn start_ui(app_state: SharedState) -> Result<(), io::Error> {
 
     let (tx, mut rx) = mpsc::channel(100);
 
-    tokio::spawn(async move {
+    let input_handle = tokio::spawn(async move {
         loop {
-            if event::poll(Duration::from_millis(200)).unwrap() {
+            if event::poll(Duration::from_millis(50)).unwrap() {
                 if let Ok(evt) = event::read() {
                     if tx.send(evt).await.is_err() {
                         break;
@@ -78,6 +78,7 @@ pub async fn start_ui(app_state: SharedState) -> Result<(), io::Error> {
         }
     }
 
+    input_handle.abort();
     disable_raw_mode()?;
     execute!(
         terminal.backend_mut(),
@@ -138,7 +139,7 @@ fn draw_logs_mode(f: &mut Frame, area: Rect, app_state: &AppState) {
 
     let overlay_area = centered_rect(80, 80, area);
     let visible_height = overlay_area.height.saturating_sub(2);
-    let effective_vertical_scroll = if !app_state.user_scrolled_up {
+    let effective_vertical_scroll = if !app_state.user_scrolled {
         if logs_len > visible_height as usize {
             (logs_len - visible_height as usize) as u16
         } else {
@@ -148,12 +149,6 @@ fn draw_logs_mode(f: &mut Frame, area: Rect, app_state: &AppState) {
         app_state.vertical_scroll
     };
 
-    let vertical_scroll = if logs_len > visible_height as usize {
-        (logs_len - visible_height as usize) as u16
-    } else {
-        0
-    };
-
     let paragraph = Paragraph::new(log_spans)
         .block(
             Block::default()
@@ -161,10 +156,11 @@ fn draw_logs_mode(f: &mut Frame, area: Rect, app_state: &AppState) {
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Cyan)),
         )
-        .scroll((vertical_scroll, app_state.horizontal_scroll));
+        .scroll((effective_vertical_scroll, app_state.horizontal_scroll));
 
     let scrollbar = Scrollbar::new(ratatui::widgets::ScrollbarOrientation::VerticalRight);
-    let mut scrollbar_state = ScrollbarState::new(logs_len).position(vertical_scroll.into());
+    let mut scrollbar_state =
+        ScrollbarState::new(logs_len).position(effective_vertical_scroll.into());
 
     f.render_widget(Clear, overlay_area);
     f.render_widget(paragraph, overlay_area);

@@ -1,6 +1,7 @@
 use futures::StreamExt;
 use std::{error::Error, pin::Pin};
-use tokio::task::JoinHandle;
+use tokio::time::Duration;
+use tokio::{task::JoinHandle, time};
 
 use shiplift::{ContainerListOptions, Docker, LogsOptions, tty::TtyChunk};
 use strip_ansi_escapes::strip;
@@ -74,43 +75,77 @@ pub fn stream_logs(container_id: String, app_state: SharedState) -> JoinHandle<(
 
         let mut log_stream = docker.containers().get(&container_id).logs(&options);
         let mut new_lines_since_cleanup = 0;
+        let mut buffer: Vec<String> = Vec::new();
 
-        while let Some(log_result) = log_stream.next().await {
-            match log_result {
-                Ok(chunk) => {
-                    let cleaned = strip(&*chunk);
-                    let line = String::from_utf8_lossy(&cleaned).to_string();
-                    let mut app = app_state.write().await;
-                    app.logs.push(line);
-                    new_lines_since_cleanup += 1;
-                    let number_of_log_lines = app.logs.len();
+        let flush_interval = Duration::from_millis(100);
+        let mut interval = time::interval(flush_interval);
 
-                    if new_lines_since_cleanup >= CLEANUP_THRESHOLD {
-                        if number_of_log_lines > MAX_LOG_LINES {
-                            let excess = number_of_log_lines - MAX_LOG_LINES;
-                            app.logs.drain(0..excess);
+        loop {
+            tokio::select! {
+                maybe_line = log_stream.next() => {
+                    match maybe_line {
+                        Some(Ok(chunk)) => {
+                            let cleaned = strip(&*chunk);
+                            let line = String::from_utf8_lossy(&cleaned).to_string();
+                            buffer.push(line);
+                            new_lines_since_cleanup += 1;
                         }
-                        new_lines_since_cleanup = 0;
-                    }
-
-                    app.log_state
-                        .select(Some(number_of_log_lines.saturating_sub(1)));
-                    let visible_height = 15;
-
-                    if number_of_log_lines > visible_height as usize {
-                        app.vertical_scroll =
-                            (number_of_log_lines - visible_height as usize) as u16;
-                    } else {
-                        app.vertical_scroll = 0;
+                        Some(Err(e)) => {
+                            let mut app = app_state.write().await;
+                            app.logs.push(format!("Error streaming logs: {e}"));
+                        }
+                        None => {
+                            flush_buffer(&mut buffer, &app_state, &mut new_lines_since_cleanup).await;
+                            break;
+                        }
                     }
                 }
-                Err(e) => {
-                    let mut app = app_state.write().await;
-                    app.logs.push(format!("Error streaming logs: {e}"));
-                }
+                _ = interval.tick() => {
+                            flush_buffer(&mut buffer, &app_state, &mut new_lines_since_cleanup).await;
+
+                    }
             }
         }
     })
+}
+
+async fn flush_buffer(
+    buffer: &mut Vec<String>,
+    app_state: &SharedState,
+    new_lines_since_cleanup: &mut usize,
+) {
+    if buffer.is_empty() {
+        return;
+    }
+
+    let mut app = app_state.write().await;
+    let old_logs_len = app.logs.len();
+    app.logs.append(buffer);
+    let number_of_log_lines = app.logs.len();
+
+    if *new_lines_since_cleanup >= CLEANUP_THRESHOLD {
+        if number_of_log_lines > MAX_LOG_LINES {
+            let excess = number_of_log_lines - MAX_LOG_LINES;
+            app.logs.drain(0..excess);
+        }
+        *new_lines_since_cleanup = 0;
+    }
+
+    let visible_height = 15;
+    let user_selected = app.log_state.selected().unwrap_or(old_logs_len);
+
+    let user_at_bottom = user_selected >= old_logs_len.saturating_sub(5);
+
+    if user_at_bottom {
+        app.log_state
+            .select(Some(number_of_log_lines.saturating_sub(1)));
+
+        if number_of_log_lines > visible_height {
+            app.vertical_scroll = (number_of_log_lines - visible_height) as u16;
+        } else {
+            app.vertical_scroll = 0;
+        }
+    }
 }
 
 pub async fn fetch_logs(container_id: &str) -> Result<Vec<String>, Box<dyn Error>> {

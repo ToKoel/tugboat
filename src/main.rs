@@ -2,11 +2,10 @@ mod app;
 mod docker;
 mod ui;
 
-use std::{error::Error, sync::Arc, vec};
+use std::{error::Error, sync::Arc};
 
-use app::{AppMode, AppState};
+use app::AppState;
 use docker::get_container_data;
-use ratatui::widgets::ListState;
 use tokio::sync::RwLock;
 
 #[tokio::main]
@@ -14,13 +13,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let container_data = get_container_data().await?;
     let app_state = Arc::new(RwLock::new(AppState {
         container_data,
-        selected: 0,
-        mode: AppMode::Normal,
-        menu_selected: 0,
-        logs: vec![],
-        log_state: ListState::default(),
-        menu_items: vec!["Show Logs", "Restart"],
-        horizontal_scroll: 0,
+        ..Default::default()
     }));
 
     ui::start_ui(app_state)

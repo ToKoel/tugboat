@@ -3,20 +3,23 @@ use std::{io, time::Duration};
 use ratatui::{
     Frame, Terminal,
     crossterm::{
-        event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
+        event::{self, DisableMouseCapture, EnableMouseCapture, Event},
         execute,
         terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
     },
-    layout::{Constraint, Direction, Layout, Rect},
+    layout::{Constraint, Direction, Layout, Margin, Rect},
     prelude::CrosstermBackend,
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Cell, Clear, List, ListItem, ListState, Paragraph, Row, Table},
+    widgets::{
+        Block, Borders, Cell, Clear, List, ListItem, ListState, Paragraph, Row, Scrollbar,
+        ScrollbarState, Table,
+    },
 };
 
 use crate::{
-    app::{AppMode, AppState, SharedState},
-    docker::fetch_logs,
+    app::{Action, AppMode, AppState, SharedState},
+    docker::stream_logs,
 };
 
 pub async fn start_ui(app_state: SharedState) -> Result<(), io::Error> {
@@ -37,94 +40,25 @@ pub async fn start_ui(app_state: SharedState) -> Result<(), io::Error> {
         if event::poll(Duration::from_millis(200))? {
             if let Event::Key(key) = event::read()? {
                 let mut app = app_state.write().await;
-                match app.mode {
-                    AppMode::Normal => match key.code {
-                        KeyCode::Char('q') => break,
-                        KeyCode::Down | KeyCode::Char('j') => {
-                            if app.selected + 1 < app.container_data.len() {
-                                app.selected += 1;
-                            }
-                        }
-                        KeyCode::Up | KeyCode::Char('k') => {
-                            if app.selected > 0 {
-                                app.selected -= 1;
-                            }
-                        }
-                        KeyCode::Enter => {
-                            app.mode = AppMode::ContextMenu;
-                            app.menu_selected = 0;
-                        }
-                        _ => {}
-                    },
-                    AppMode::ContextMenu => match key.code {
-                        KeyCode::Esc | KeyCode::Char('q') => app.mode = AppMode::Normal,
-                        KeyCode::Down => {
-                            if app.menu_selected + 1 < app.menu_items.len() {
-                                app.menu_selected += 1;
-                            } else {
-                                app.menu_selected = 0;
-                            }
-                        }
-                        KeyCode::Up => {
-                            if app.menu_selected > 0 {
-                                app.menu_selected -= 1;
-                            } else {
-                                app.menu_selected = app.menu_items.len() - 1;
-                            }
-                        }
-                        KeyCode::Enter => match app.menu_selected {
-                            0 => {
-                                app.mode = AppMode::Logs;
-                                app.logs = vec!["Loading logs...".to_string()];
-                                app.log_state.select(Some(0));
 
-                                terminal.draw(|f| {
-                                    draw_ui(f, &app);
-                                })?;
+                match app.handle_input(key.code) {
+                    Action::Exit => break,
+                    Action::Continue => {
+                        if app.mode == AppMode::Logs
+                            && app.logs == vec!["Loading logs...".to_string()]
+                        {
+                            terminal.draw(|f| {
+                                draw_ui(f, &app);
+                            })?;
 
-                                let container_id = app.container_data[app.selected].0.clone();
-                                drop(app);
-                                let logs = fetch_logs(&container_id)
-                                    .await
-                                    .unwrap_or_else(|_| vec!["Failed to load logs.".into()]);
-                                let mut app = app_state.write().await;
-                                let app_logs = logs.clone();
-                                app.logs = logs;
-                                app.log_state.select(Some(app_logs.len().saturating_sub(1)));
-                            }
-                            1 => {
-                                app.mode = AppMode::Normal;
-                            }
-                            _ => {}
-                        },
-                        _ => {}
-                    },
-                    AppMode::Logs => match key.code {
-                        KeyCode::Esc | KeyCode::Enter | KeyCode::Char('q') => {
-                            app.mode = AppMode::Normal
+                            let container_id = app.container_data[app.selected].0.clone();
+                            drop(app);
+                            let log_task = stream_logs(container_id, app_state.clone());
+
+                            let mut app = app_state.write().await;
+                            app.log_task = Some(log_task);
                         }
-                        KeyCode::Left => {
-                            if app.horizontal_scroll > 0 {
-                                app.horizontal_scroll -= 10;
-                            }
-                        }
-                        KeyCode::Right => {
-                            app.horizontal_scroll += 10;
-                        }
-                        KeyCode::Down | KeyCode::Char('j') => {
-                            let selected = app.log_state.selected();
-                            if selected.unwrap_or(0) + 1 < app.logs.len() {
-                                app.log_state.select(Some(selected.unwrap_or(0) + 1));
-                            }
-                        }
-                        KeyCode::Up | KeyCode::Char('k') => {
-                            let selected = app.log_state.selected();
-                            if selected.unwrap_or(0) > 0 {
-                                app.log_state.select(Some(selected.unwrap_or(0) - 1));
-                            }
-                        }
-                        _ => {}
-                    },
+                    }
                 }
             }
         }
@@ -185,16 +119,33 @@ fn draw_logs_mode(f: &mut Frame, area: Rect, app_state: &AppState) {
         .map(|line| Line::from(Span::raw(line.clone())))
         .collect();
 
-    let log_list = Paragraph::new(log_spans)
-        .block(Block::default().title("Logs").borders(Borders::ALL))
-        .scroll((
-            app_state.log_state.selected().unwrap_or(0) as u16,
-            app_state.horizontal_scroll,
-        ));
+    let logs_len = log_spans.len();
+    let image_name = app_state.container_data[app_state.selected].1[1].clone();
+
+    let paragraph = Paragraph::new(log_spans)
+        .block(
+            Block::default()
+                .title(format!("Logs - {}", image_name))
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Cyan)),
+        )
+        .scroll((app_state.vertical_scroll, app_state.horizontal_scroll));
+
+    let scrollbar = Scrollbar::new(ratatui::widgets::ScrollbarOrientation::VerticalRight);
+    let mut scrollbar_state =
+        ScrollbarState::new(logs_len).position(app_state.vertical_scroll.into());
 
     let overlay_area = centered_rect(80, 80, area);
     f.render_widget(Clear, overlay_area);
-    f.render_widget(log_list, overlay_area);
+    f.render_widget(paragraph, overlay_area);
+    f.render_stateful_widget(
+        scrollbar,
+        overlay_area.inner(Margin {
+            vertical: 1,
+            horizontal: 0,
+        }),
+        &mut scrollbar_state,
+    );
 }
 
 fn centered_rect(percent_x: u16, percent_y: u16, area: Rect) -> Rect {
@@ -267,10 +218,60 @@ fn draw_normal_mode(f: &mut Frame, area: Rect, app_state: &AppState) {
 
 #[cfg(test)]
 mod tests {
+    use std::vec;
+
     use super::*;
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
-    use ratatui::buffer::Buffer;
+
+    fn create_app_state_for_test(app_mode: &AppMode) -> AppState {
+        AppState {
+            container_data: vec![
+                (
+                    "id1".to_string(),
+                    vec![
+                        "id1".into(),
+                        "img1".into(),
+                        "running".into(),
+                        "name1".into(),
+                        "127.0.0.1".into(),
+                    ],
+                ),
+                (
+                    "id2".to_string(),
+                    vec![
+                        "id2".into(),
+                        "img2".into(),
+                        "exited".into(),
+                        "name2".into(),
+                        "127.0.0.2".into(),
+                    ],
+                ),
+            ],
+            mode: app_mode.clone(),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn test_draw_ui_normal_mode_snapshot() {
+        let mut terminal = Terminal::new(TestBackend::new(80, 20)).unwrap();
+        let app = create_app_state_for_test(&AppMode::Normal);
+
+        terminal.draw(|f| draw_ui(f, &app)).unwrap();
+
+        insta::assert_snapshot!(terminal.backend());
+    }
+
+    #[test]
+    fn test_draw_ui_context_mode_snapshot() {
+        let mut terminal = Terminal::new(TestBackend::new(80, 20)).unwrap();
+        let app = create_app_state_for_test(&AppMode::ContextMenu);
+
+        terminal.draw(|f| draw_ui(f, &app)).unwrap();
+
+        insta::assert_snapshot!(terminal.backend());
+    }
 
     #[test]
     fn test_centered_rect() {
@@ -315,6 +316,10 @@ mod tests {
         log_state.select(Some(0));
 
         let app_state = AppState {
+            container_data: vec![(
+                "id1".to_string(),
+                vec!["id1".to_string(), "image_name".to_string()],
+            )],
             logs: vec!["Log line 1".into(), "Log line 2".into()],
             log_state,
             horizontal_scroll: 0,

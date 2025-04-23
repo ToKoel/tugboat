@@ -1,10 +1,16 @@
 use futures::StreamExt;
 use std::{error::Error, pin::Pin};
+use tokio::task::JoinHandle;
 
 use shiplift::{ContainerListOptions, Docker, LogsOptions, tty::TtyChunk};
 use strip_ansi_escapes::strip;
 
 use async_trait::async_trait;
+
+use crate::app::SharedState;
+
+const MAX_LOG_LINES: usize = 1000;
+const CLEANUP_THRESHOLD: usize = 100;
 
 type LogStream<'a> =
     Pin<Box<dyn futures::Stream<Item = Result<TtyChunk, shiplift::Error>> + Send + 'a>>;
@@ -54,6 +60,57 @@ impl DockerApi for shiplift::Docker {
     ) -> Result<shiplift::rep::ContainerDetails, Box<dyn Error>> {
         Ok(self.containers().get(container_id).inspect().await?)
     }
+}
+
+pub fn stream_logs(container_id: String, app_state: SharedState) -> JoinHandle<()> {
+    tokio::spawn(async move {
+        let docker = Docker::new();
+        let options = LogsOptions::builder()
+            .stdout(true)
+            .stderr(true)
+            .follow(true)
+            .tail("2000")
+            .build();
+
+        let mut log_stream = docker.containers().get(&container_id).logs(&options);
+        let mut new_lines_since_cleanup = 0;
+
+        while let Some(log_result) = log_stream.next().await {
+            match log_result {
+                Ok(chunk) => {
+                    let cleaned = strip(&*chunk);
+                    let line = String::from_utf8_lossy(&cleaned).to_string();
+                    let mut app = app_state.write().await;
+                    app.logs.push(line);
+                    new_lines_since_cleanup += 1;
+                    let number_of_log_lines = app.logs.len();
+
+                    if new_lines_since_cleanup >= CLEANUP_THRESHOLD {
+                        if number_of_log_lines > MAX_LOG_LINES {
+                            let excess = number_of_log_lines - MAX_LOG_LINES;
+                            app.logs.drain(0..excess);
+                        }
+                        new_lines_since_cleanup = 0;
+                    }
+
+                    app.log_state
+                        .select(Some(number_of_log_lines.saturating_sub(1)));
+                    let visible_height = 15;
+
+                    if number_of_log_lines > visible_height as usize {
+                        app.vertical_scroll =
+                            (number_of_log_lines - visible_height as usize) as u16;
+                    } else {
+                        app.vertical_scroll = 0;
+                    }
+                }
+                Err(e) => {
+                    let mut app = app_state.write().await;
+                    app.logs.push(format!("Error streaming logs: {e}"));
+                }
+            }
+        }
+    })
 }
 
 pub async fn fetch_logs(container_id: &str) -> Result<Vec<String>, Box<dyn Error>> {

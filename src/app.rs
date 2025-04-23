@@ -31,6 +31,7 @@ pub struct AppState {
     pub horizontal_scroll: u16,
     pub vertical_scroll: u16,
     pub log_task: Option<JoinHandle<()>>,
+    pub user_scrolled_up: bool,
 }
 
 pub type SharedState = Arc<RwLock<AppState>>;
@@ -102,6 +103,7 @@ impl AppState {
                 }
                 KeyCode::Down | KeyCode::Char('j') => {
                     self.vertical_scroll += 1;
+                    self.user_scrolled_up = true;
                     let selected = self.log_state.selected();
                     if selected.unwrap_or(0) + 1 < self.logs.len() {
                         self.log_state.select(Some(selected.unwrap_or(0) + 1));
@@ -111,6 +113,7 @@ impl AppState {
                     if self.vertical_scroll > 0 {
                         self.vertical_scroll -= 1;
                     }
+                    self.user_scrolled_up = true;
                     let selected = self.log_state.selected();
                     if selected.unwrap_or(0) > 0 {
                         self.log_state.select(Some(selected.unwrap_or(0) - 1));

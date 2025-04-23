@@ -132,20 +132,6 @@ async fn flush_buffer(
     }
 
     let visible_height = 15;
-    let user_selected = app.log_state.selected().unwrap_or(old_logs_len);
-
-    let user_at_bottom = user_selected >= old_logs_len.saturating_sub(5);
-
-    if user_at_bottom {
-        app.log_state
-            .select(Some(number_of_log_lines.saturating_sub(1)));
-
-        if number_of_log_lines > visible_height {
-            app.vertical_scroll = (number_of_log_lines - visible_height) as u16;
-        } else {
-            app.vertical_scroll = 0;
-        }
-    }
 }
 
 pub async fn fetch_logs(container_id: &str) -> Result<Vec<String>, Box<dyn Error>> {

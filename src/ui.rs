@@ -34,7 +34,7 @@ pub async fn start_ui(app_state: SharedState) -> Result<(), io::Error> {
 
     tokio::spawn(async move {
         loop {
-            if event::poll(Duration::from_millis(50)).unwrap() {
+            if event::poll(Duration::from_millis(200)).unwrap() {
                 if let Ok(evt) = event::read() {
                     if tx.send(evt).await.is_err() {
                         break;

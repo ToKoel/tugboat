@@ -1,5 +1,6 @@
 use std::{
     collections::HashSet,
+    fmt::Debug,
     io::{self},
     time::Duration,
 };
@@ -11,19 +12,20 @@ use ratatui::{
         execute,
         terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
     },
-    layout::{Constraint, Direction, Layout, Margin, Rect},
+    layout::{Alignment, Constraint, Direction, Layout, Margin, Rect},
     prelude::CrosstermBackend,
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{
         Block, Borders, Cell, Clear, List, ListItem, ListState, Paragraph, Row, Scrollbar,
-        ScrollbarState, Table,
+        ScrollbarState, Table, Wrap,
     },
 };
 
 use crate::{
     app::{Action, AppMode, AppState, SharedState},
     docker::stream_logs,
+    keybindings::{KeyMatch, default_keybindings},
 };
 
 pub async fn start_ui(app_state: SharedState) -> Result<(), io::Error> {
@@ -99,7 +101,47 @@ fn draw_ui(f: &mut Frame, app_state: &AppState) {
             let log_area = draw_logs_mode(f, area, app_state);
             draw_search_mode(f, log_area, app_state);
         }
+        AppMode::Help => {
+            draw_help(f, area);
+        }
     }
+}
+
+fn draw_help(f: &mut Frame, area: Rect) {
+    let mut lines: Vec<Line> = default_keybindings()
+        .iter()
+        .map(|binding| {
+            let keys: Vec<String> = binding
+                .matchers
+                .iter()
+                .map(|m| match m {
+                    KeyMatch::Exact(key) => format!("{}", key),
+                    _ => "".to_string(),
+                })
+                .filter(|key_string| !key_string.is_empty())
+                .collect();
+            let key_text = keys.join(" / ");
+
+            Line::from(vec![
+                Span::styled(key_text, Style::default().fg(Color::Yellow)),
+                Span::raw(" — "),
+                Span::raw(binding.description),
+            ])
+        })
+        .collect();
+
+    let paragraph = Paragraph::new(lines)
+        .block(
+            Block::default()
+                .title("Help - Key Bindings")
+                .borders(Borders::ALL),
+        )
+        .wrap(Wrap { trim: true })
+        .alignment(Alignment::Left);
+
+    let popup_area = centered_rect(60, 70, area);
+    f.render_widget(Clear, popup_area);
+    f.render_widget(paragraph, popup_area);
 }
 
 fn draw_search_mode(f: &mut Frame, area: Rect, app_state: &AppState) {

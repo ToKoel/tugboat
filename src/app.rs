@@ -6,13 +6,14 @@ use tokio::{sync::RwLock, task::JoinHandle};
 
 use crate::keybindings::{default_keybindings, matches_keys};
 
-#[derive(Clone, Default, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Default, Debug, PartialEq, Eq)]
 pub enum AppMode {
     #[default]
     Normal,
     ContextMenu,
     Logs,
     Search,
+    Help,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -26,6 +27,7 @@ pub struct AppState {
     pub container_data: Vec<(String, Vec<String>)>,
     pub selected: usize,
     pub mode: AppMode,
+    pub last_mode: AppMode,
     pub menu_selected: usize,
     pub logs: Vec<String>,
     #[default(_code = "vec![\"Show Logs\", \"Restart\"]")]

@@ -44,6 +44,10 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
                     app.mode = AppMode::Normal;
                     Action::Continue
                 }
+                AppMode::Help => {
+                    app.mode = app.last_mode;
+                    Action::Continue
+                }
             },
         },
         KeyBinding {
@@ -240,6 +244,15 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
                     Action::Continue
                 }
                 _ => Action::Continue,
+            },
+        },
+        KeyBinding {
+            matchers: vec![KeyMatch::Exact(KeyCode::Char('?'))],
+            description: "Open help",
+            action: |app, _| {
+                app.last_mode = app.mode;
+                app.mode = AppMode::Help;
+                Action::Continue
             },
         },
         KeyBinding {

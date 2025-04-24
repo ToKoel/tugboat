@@ -1,5 +1,6 @@
 mod app;
 mod docker;
+mod keybindings;
 mod ui;
 
 use std::{error::Error, sync::Arc};

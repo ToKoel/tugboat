@@ -1,8 +1,10 @@
 use std::sync::Arc;
 
-use ratatui::{crossterm::event::KeyCode, widgets::ListState};
+use ratatui::crossterm::event::KeyCode;
 use smart_default::SmartDefault;
 use tokio::{sync::RwLock, task::JoinHandle};
+
+use crate::keybindings::{default_keybindings, matches_keys};
 
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub enum AppMode {
@@ -43,134 +45,10 @@ pub type SharedState = Arc<RwLock<AppState>>;
 
 impl AppState {
     pub fn handle_input(&mut self, key: KeyCode) -> Action {
-        match self.mode {
-            AppMode::Normal => match key {
-                KeyCode::Char('q') => return Action::Exit,
-                KeyCode::Down | KeyCode::Char('j') => {
-                    if self.selected + 1 < self.container_data.len() {
-                        self.selected += 1;
-                    }
-                }
-                KeyCode::Up | KeyCode::Char('k') => {
-                    if self.selected > 0 {
-                        self.selected -= 1;
-                    }
-                }
-                KeyCode::Enter => {
-                    self.mode = AppMode::ContextMenu;
-                    self.menu_selected = 0;
-                }
-                _ => {}
-            },
-            AppMode::ContextMenu => match key {
-                KeyCode::Esc | KeyCode::Char('q') => self.mode = AppMode::Normal,
-                KeyCode::Down => {
-                    if self.menu_selected + 1 < self.menu_items.len() {
-                        self.menu_selected += 1;
-                    } else {
-                        self.menu_selected = 0;
-                    }
-                }
-                KeyCode::Up => {
-                    if self.menu_selected > 0 {
-                        self.menu_selected -= 1;
-                    } else {
-                        self.menu_selected = self.menu_items.len() - 1;
-                    }
-                }
-                KeyCode::Enter => match self.menu_selected {
-                    0 => {
-                        self.mode = AppMode::Logs;
-                        self.logs = vec!["Loading logs...".to_string()];
-                    }
-                    1 => {
-                        self.mode = AppMode::Normal;
-                    }
-                    _ => {}
-                },
-                _ => {}
-            },
-            AppMode::Logs => match key {
-                KeyCode::Esc | KeyCode::Enter | KeyCode::Char('q') => {
-                    if let Some(handle) = self.log_task.take() {
-                        handle.abort();
-                    }
-                    self.mode = AppMode::Normal;
-                }
-                KeyCode::Left | KeyCode::Char('h') => {
-                    self.horizontal_scroll = self.horizontal_scroll.saturating_sub(10);
-                }
-                KeyCode::Right | KeyCode::Char('l') => {
-                    self.horizontal_scroll = self.horizontal_scroll.saturating_add(10);
-                }
-                KeyCode::Down | KeyCode::Char('j') => {
-                    self.user_scrolled = true;
-                    self.vertical_scroll = self.vertical_scroll.saturating_add(1);
-                }
-                KeyCode::Up | KeyCode::Char('k') => {
-                    self.user_scrolled = true;
-                    self.vertical_scroll = self.vertical_scroll.saturating_sub(1);
-                }
-                KeyCode::Char('G') => {
-                    self.user_scrolled = false;
-                    self.vertical_scroll = self.logs.len().saturating_sub(15) as u16;
-                }
-                KeyCode::Char('/') => {
-                    self.mode = AppMode::Search;
-                    self.search_query.clear();
-                }
-                KeyCode::Char('n') => {
-                    if let Some(current) = self.current_match_index {
-                        if !self.search_matches.is_empty() {
-                            self.current_match_index =
-                                Some((current + 1) % self.search_matches.len());
-                            self.vertical_scroll =
-                                self.search_matches[self.current_match_index.unwrap()] as u16;
-                        }
-                    }
-                }
-                KeyCode::Char('N') => {
-                    if let Some(current) = self.current_match_index {
-                        if !self.search_matches.is_empty() {
-                            let len = self.search_matches.len();
-                            self.current_match_index = Some((current + len - 1) % len);
-                            self.vertical_scroll =
-                                self.search_matches[self.current_match_index.unwrap()] as u16
-                        }
-                    }
-                }
-                _ => {}
-            },
-            AppMode::Search => match key {
-                KeyCode::Esc => {
-                    self.mode = AppMode::Logs;
-                }
-                KeyCode::Enter => {
-                    self.search_matches = self
-                        .logs
-                        .iter()
-                        .enumerate()
-                        .filter(|(_, line)| line.contains(&self.search_query))
-                        .map(|(i, _)| i)
-                        .collect();
-                    self.current_match_index = if self.search_matches.is_empty() {
-                        None
-                    } else {
-                        Some(0)
-                    };
-                    if let Some(index) = self.current_match_index {
-                        self.vertical_scroll = self.search_matches[index] as u16;
-                    }
-                    self.mode = AppMode::Logs;
-                }
-                KeyCode::Backspace => {
-                    self.search_query.pop();
-                }
-                KeyCode::Char(c) => {
-                    self.search_query.push(c);
-                }
-                _ => {}
-            },
+        for binding in default_keybindings() {
+            if binding.matchers.iter().any(|m| matches_keys(&key, m)) {
+                return (binding.action)(self, &key);
+            }
         }
         Action::Continue
     }

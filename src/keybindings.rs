@@ -183,19 +183,6 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
             },
         },
         KeyBinding {
-            matchers: vec![KeyMatch::MatchFn(|k| matches!(k, KeyCode::Char(_)))],
-            description: "Raw input for search",
-            action: |app, key| match app.mode {
-                AppMode::Search => {
-                    if let KeyCode::Char(c) = key {
-                        app.search_query.push(*c);
-                    }
-                    Action::Continue
-                }
-                _ => Action::Continue,
-            },
-        },
-        KeyBinding {
             matchers: vec![KeyMatch::Exact(KeyCode::Char('G'))],
             description: "Jump to latest log entry",
             action: |app, _| match app.mode {
@@ -249,6 +236,19 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
                             app.vertical_scroll =
                                 app.search_matches[app.current_match_index.unwrap()] as u16
                         }
+                    }
+                    Action::Continue
+                }
+                _ => Action::Continue,
+            },
+        },
+        KeyBinding {
+            matchers: vec![KeyMatch::MatchFn(|k| matches!(k, KeyCode::Char(_)))],
+            description: "Raw input for search",
+            action: |app, key| match app.mode {
+                AppMode::Search => {
+                    if let KeyCode::Char(c) = key {
+                        app.search_query.push(*c);
                     }
                     Action::Continue
                 }

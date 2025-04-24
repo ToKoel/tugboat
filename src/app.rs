@@ -59,9 +59,9 @@ mod tests {
     use std::vec;
 
     use super::*;
-    #[test]
-    fn test_down_key_in_normal_mode() {
-        let mut app = AppState {
+
+    fn get_app_state() -> AppState {
+        AppState {
             container_data: vec![
                 (
                     "id1".to_string(),
@@ -84,104 +84,78 @@ mod tests {
                     ],
                 ),
             ],
-            selected: 0,
+            logs: std::iter::repeat_n("log_line".to_string(), 50).collect(),
             ..Default::default()
-        };
-
-        // down pressed
-        if app.selected + 1 < app.container_data.len() {
-            app.selected += 1;
         }
-
-        assert_eq!(app.selected, 1);
     }
 
     #[test]
-    fn test_up_key_in_normal_mode() {
+    fn handle_input_handles_exit() {
         let mut app = AppState {
-            container_data: vec![(
-                "id1".to_string(),
-                vec![
-                    "id1".into(),
-                    "img1".into(),
-                    "running".into(),
-                    "name1".into(),
-                    "127.0.0.1".into(),
-                ],
-            )],
-            selected: 1,
             ..Default::default()
         };
 
-        // up pressed
-        if app.selected > 0 {
-            app.selected -= 1;
-        }
-
-        assert_eq!(app.selected, 0);
+        let result = app.handle_input(KeyCode::Esc);
+        assert_eq!(Action::Exit, result);
     }
 
     #[test]
-    fn test_enter_key_opens_context_menu() {
-        let mut app = AppState {
-            mode: AppMode::Normal,
-            ..Default::default()
-        };
+    fn enter_opens_context_menu() {
+        let mut app = get_app_state();
+        let action = app.handle_input(KeyCode::Enter);
+        assert_eq!(Action::Continue, action);
+        assert_eq!(AppMode::ContextMenu, app.mode);
+    }
 
-        // enter pressed
+    #[test]
+    fn enter_opens_logs() {
+        let mut app = get_app_state();
         app.mode = AppMode::ContextMenu;
-        app.menu_selected = 0;
-
-        assert_eq!(app.mode, AppMode::ContextMenu);
-        assert_eq!(app.menu_selected, 0);
+        app.menu_selected = 1;
+        let action = app.handle_input(KeyCode::Up);
+        let action_2 = app.handle_input(KeyCode::Enter);
+        assert_eq!(Action::Continue, action);
+        assert_eq!(Action::Continue, action_2);
+        assert_eq!(AppMode::Logs, app.mode);
     }
 
     #[test]
-    fn test_escape_in_context_menu_returns_to_normal() {
-        let mut app = AppState {
-            mode: AppMode::ContextMenu,
-            ..Default::default()
-        };
-
-        // simulate Esc key
-        app.mode = AppMode::Normal;
-
-        assert_eq!(app.mode, AppMode::Normal);
+    fn slash_opens_search() {
+        let mut app = get_app_state();
+        app.mode = AppMode::Logs;
+        let action = app.handle_input(KeyCode::Char('/'));
+        let action_2 = app.handle_input(KeyCode::Char('a'));
+        assert_eq!(Action::Continue, action);
+        assert_eq!(Action::Continue, action_2);
+        assert_eq!(AppMode::Search, app.mode);
+        assert_eq!("a".to_string(), app.search_query);
     }
 
     #[test]
-    fn test_menu_down_wraps() {
-        let mut app = AppState {
-            menu_items: vec!["View Logs", "Back"],
-            menu_selected: 1,
-            ..Default::default()
-        };
+    fn handle_input_scroll_up() {
+        let mut app = get_app_state();
+        app.selected = 1;
+        let action = app.handle_input(KeyCode::Up);
+        assert_eq!(app.selected, 0);
+        assert_eq!(action, Action::Continue);
 
-        // simulate Down key
-        if app.menu_selected + 1 < app.menu_items.len() {
-            app.menu_selected += 1;
-        } else {
-            app.menu_selected = 0;
-        }
-
-        assert_eq!(app.menu_selected, 0);
+        app.selected = 1;
+        let action_2 = app.handle_input(KeyCode::Char('k'));
+        assert_eq!(app.selected, 0);
+        assert_eq!(action_2, Action::Continue);
     }
 
     #[test]
-    fn test_menu_up_wraps() {
-        let mut app = AppState {
-            menu_items: vec!["View Logs", "Back"],
-            menu_selected: 0,
-            ..Default::default()
-        };
+    fn handle_input_scroll_down() {
+        let mut app = get_app_state();
+        app.selected = 0;
+        let action = app.handle_input(KeyCode::Down);
+        assert_eq!(app.selected, 1);
+        assert_eq!(action, Action::Continue);
 
-        // simulate Up key
-        if app.menu_selected > 0 {
-            app.menu_selected -= 1;
-        } else {
-            app.menu_selected = app.menu_items.len() - 1;
-        }
-
-        assert_eq!(app.menu_selected, 1);
+        app.selected = 0;
+        let action = app.handle_input(KeyCode::Char('j'));
+        assert_eq!(app.selected, 1);
+        assert_eq!(action, Action::Continue);
     }
 }

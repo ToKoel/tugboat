@@ -1,4 +1,5 @@
 use std::{
+    collections::HashSet,
     io::{self},
     time::Duration,
 };
@@ -81,17 +82,40 @@ pub async fn start_ui(app_state: SharedState) -> Result<(), io::Error> {
 fn draw_ui(f: &mut Frame, app_state: &AppState) {
     let area = f.area();
 
-    if let AppMode::Normal = app_state.mode {
-        draw_normal_mode(f, area, app_state);
+    match app_state.mode {
+        AppMode::Normal => {
+            draw_normal_mode(f, area, app_state);
+        }
+        AppMode::ContextMenu => {
+            draw_normal_mode(f, area, app_state);
+            draw_context_mode(f, area, app_state);
+        }
+        AppMode::Logs => {
+            draw_normal_mode(f, area, app_state);
+            draw_logs_mode(f, area, app_state);
+        }
+        AppMode::Search => {
+            draw_normal_mode(f, area, app_state);
+            let log_area = draw_logs_mode(f, area, app_state);
+            draw_search_mode(f, log_area, app_state);
+        }
     }
-    if let AppMode::Logs = app_state.mode {
-        draw_normal_mode(f, area, app_state);
-        draw_logs_mode(f, area, app_state);
-    }
-    if let AppMode::ContextMenu = app_state.mode {
-        draw_normal_mode(f, area, app_state);
-        draw_context_mode(f, area, app_state);
-    }
+}
+
+fn draw_search_mode(f: &mut Frame, area: Rect, app_state: &AppState) {
+    let search_prompt = Paragraph::new(Span::raw(format!("/{}", app_state.search_query)))
+        .block(Block::default().borders(Borders::ALL).title("Search"));
+
+    let search_height = 3;
+    let bottom_area = Rect {
+        x: area.x,
+        y: area.y + area.height.saturating_sub(search_height),
+        width: area.width,
+        height: search_height,
+    };
+
+    f.render_widget(Clear, bottom_area);
+    f.render_widget(search_prompt, bottom_area);
 }
 
 fn draw_context_mode(f: &mut Frame, area: Rect, app_state: &AppState) {
@@ -116,11 +140,27 @@ fn draw_context_mode(f: &mut Frame, area: Rect, app_state: &AppState) {
     f.render_stateful_widget(menu, area, &mut state);
 }
 
-fn draw_logs_mode(f: &mut Frame, area: Rect, app_state: &AppState) {
+fn draw_logs_mode(f: &mut Frame, area: Rect, app_state: &AppState) -> Rect {
     let log_spans: Vec<Line> = app_state
         .logs
         .iter()
-        .map(|line| Line::from(Span::raw(line.clone())))
+        .map(|line| {
+            if let Some(query) =
+                (!app_state.search_query.is_empty()).then_some(&app_state.search_query)
+            {
+                if line.contains(query) {
+                    let highlighted = line.replace(query, &format!("[{}]", query));
+                    Line::from(Span::styled(
+                        highlighted,
+                        Style::default().fg(Color::Yellow),
+                    ))
+                } else {
+                    Line::from(Span::raw(line.clone()))
+                }
+            } else {
+                Line::from(Span::raw(line.clone()))
+            }
+        })
         .collect();
 
     let logs_len = log_spans.len();
@@ -151,6 +191,7 @@ fn draw_logs_mode(f: &mut Frame, area: Rect, app_state: &AppState) {
         }),
         &mut scrollbar_state,
     );
+    overlay_area
 }
 
 fn centered_rect(percent_x: u16, percent_y: u16, area: Rect) -> Rect {
@@ -255,6 +296,7 @@ mod tests {
             ],
             logs: std::iter::repeat_n("log_line".to_string(), 50).collect(),
             vertical_scroll: 10,
+            search_query: "log".to_string(),
             mode: app_mode.clone(),
             ..Default::default()
         }
@@ -291,197 +333,20 @@ mod tests {
     }
 
     #[test]
+    fn test_draw_ui_search_mode_snapshot() {
+        let mut terminal = Terminal::new(TestBackend::new(80, 20)).unwrap();
+        let app = create_app_state_for_test(&AppMode::Search);
+
+        terminal.draw(|f| draw_ui(f, &app)).unwrap();
+
+        insta::assert_snapshot!(terminal.backend());
+    }
+
+    #[test]
     fn test_centered_rect() {
         let area = Rect::new(0, 0, 100, 100);
         let rect = centered_rect(50, 50, area);
         assert!(rect.width <= 100);
         assert!(rect.height <= 100);
-    }
-
-    #[test]
-    fn test_draw_normal_mode() {
-        let backend = TestBackend::new(80, 24);
-        let mut terminal = Terminal::new(backend).unwrap();
-        let mut frame = terminal.get_frame();
-
-        let app_state = AppState {
-            container_data: vec![(
-                "id1".to_string(),
-                vec![
-                    "id1".into(),
-                    "img1".into(),
-                    "running".into(),
-                    "name1".into(),
-                    "127.0.0.1".into(),
-                ],
-            )],
-            selected: 0,
-            ..Default::default()
-        };
-        let area = frame.area();
-
-        draw_normal_mode(&mut frame, area, &app_state);
-    }
-
-    #[test]
-    fn test_draw_logs_mode() {
-        let backend = TestBackend::new(80, 24);
-        let mut terminal = Terminal::new(backend).unwrap();
-        let mut frame = terminal.get_frame();
-
-        let app_state = AppState {
-            container_data: vec![(
-                "id1".to_string(),
-                vec!["id1".to_string(), "image_name".to_string()],
-            )],
-            logs: vec!["Log line 1".into(), "Log line 2".into()],
-            horizontal_scroll: 0,
-            ..Default::default()
-        };
-        let area = frame.area();
-
-        draw_logs_mode(&mut frame, area, &app_state);
-    }
-
-    #[test]
-    fn test_draw_context_mode() {
-        let backend = TestBackend::new(80, 24);
-        let mut terminal = Terminal::new(backend).unwrap();
-        let mut frame = terminal.get_frame();
-
-        let app_state = AppState {
-            menu_items: vec!["Action 1", "Action 2"],
-            menu_selected: 0,
-            ..Default::default()
-        };
-
-        let area = frame.area();
-        draw_context_mode(&mut frame, area, &app_state);
-    }
-
-    #[test]
-    fn test_down_key_in_normal_mode() {
-        let mut app = AppState {
-            container_data: vec![
-                (
-                    "id1".to_string(),
-                    vec![
-                        "id1".into(),
-                        "img1".into(),
-                        "running".into(),
-                        "name1".into(),
-                        "127.0.0.1".into(),
-                    ],
-                ),
-                (
-                    "id2".to_string(),
-                    vec![
-                        "id2".into(),
-                        "img2".into(),
-                        "exited".into(),
-                        "name2".into(),
-                        "127.0.0.2".into(),
-                    ],
-                ),
-            ],
-            selected: 0,
-            ..Default::default()
-        };
-
-        // down pressed
-        if app.selected + 1 < app.container_data.len() {
-            app.selected += 1;
-        }
-
-        assert_eq!(app.selected, 1);
-    }
-
-    #[test]
-    fn test_up_key_in_normal_mode() {
-        let mut app = AppState {
-            container_data: vec![(
-                "id1".to_string(),
-                vec![
-                    "id1".into(),
-                    "img1".into(),
-                    "running".into(),
-                    "name1".into(),
-                    "127.0.0.1".into(),
-                ],
-            )],
-            selected: 1,
-            ..Default::default()
-        };
-
-        // up pressed
-        if app.selected > 0 {
-            app.selected -= 1;
-        }
-
-        assert_eq!(app.selected, 0);
-    }
-
-    #[test]
-    fn test_enter_key_opens_context_menu() {
-        let mut app = AppState {
-            mode: AppMode::Normal,
-            ..Default::default()
-        };
-
-        // enter pressed
-        app.mode = AppMode::ContextMenu;
-        app.menu_selected = 0;
-
-        assert_eq!(app.mode, AppMode::ContextMenu);
-        assert_eq!(app.menu_selected, 0);
-    }
-
-    #[test]
-    fn test_escape_in_context_menu_returns_to_normal() {
-        let mut app = AppState {
-            mode: AppMode::ContextMenu,
-            ..Default::default()
-        };
-
-        // simulate Esc key
-        app.mode = AppMode::Normal;
-
-        assert_eq!(app.mode, AppMode::Normal);
-    }
-
-    #[test]
-    fn test_menu_down_wraps() {
-        let mut app = AppState {
-            menu_items: vec!["View Logs", "Back"],
-            menu_selected: 1,
-            ..Default::default()
-        };
-
-        // simulate Down key
-        if app.menu_selected + 1 < app.menu_items.len() {
-            app.menu_selected += 1;
-        } else {
-            app.menu_selected = 0;
-        }
-
-        assert_eq!(app.menu_selected, 0);
-    }
-
-    #[test]
-    fn test_menu_up_wraps() {
-        let mut app = AppState {
-            menu_items: vec!["View Logs", "Back"],
-            menu_selected: 0,
-            ..Default::default()
-        };
-
-        // simulate Up key
-        if app.menu_selected > 0 {
-            app.menu_selected -= 1;
-        } else {
-            app.menu_selected = app.menu_items.len() - 1;
-        }
-
-        assert_eq!(app.menu_selected, 1);
     }
 }

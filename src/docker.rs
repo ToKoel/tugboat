@@ -139,39 +139,6 @@ async fn flush_buffer(
     }
 }
 
-pub async fn fetch_logs(container_id: &str) -> Result<Vec<String>, Box<dyn Error>> {
-    let docker = Docker::new();
-    fetch_logs_with_api(&docker, container_id).await
-}
-
-async fn fetch_logs_with_api(
-    docker: &dyn DockerApi,
-    container_id: &str,
-) -> Result<Vec<String>, Box<dyn Error>> {
-    let log_stream = docker.get_logs(container_id).await?;
-    Ok(fetch_logs_from_stream(log_stream).await)
-}
-
-async fn fetch_logs_from_stream<S>(mut stream: S) -> Vec<String>
-where
-    S: futures::Stream<Item = Result<TtyChunk, shiplift::Error>> + Unpin,
-{
-    let mut logs = Vec::new();
-
-    while let Some(chunk) = stream.next().await {
-        match chunk {
-            Ok(data) => {
-                let cleaned = strip(&*data);
-                logs.push(String::from_utf8_lossy(&cleaned).to_string());
-                if logs.len() > 100 {
-                    logs.remove(0);
-                }
-            }
-            Err(_) => break,
-        }
-    }
-    logs
-}
 pub async fn get_container_data() -> Result<Vec<(String, Vec<String>)>, Box<dyn Error>> {
     let docker = Docker::new();
     get_container_data_with_api(&docker).await
@@ -348,17 +315,6 @@ mod tests {
                 mounts: vec![],
             })
         }
-    }
-
-    #[tokio::test]
-    async fn test_fetch_logs() {
-        let mock = MockDockerApi;
-        let logs = fetch_logs_with_api(&mock, "mock_id_1234567891")
-            .await
-            .unwrap();
-        assert_eq!(logs.len(), 2);
-        assert!(logs[0].contains("Log line 1"));
-        assert!(logs[1].contains("Log line 2"));
     }
 
     #[tokio::test]

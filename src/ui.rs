@@ -253,6 +253,8 @@ mod tests {
                     ],
                 ),
             ],
+            logs: std::iter::repeat_n("log_line".to_string(), 50).collect(),
+            vertical_scroll: 10,
             mode: app_mode.clone(),
             ..Default::default()
         }
@@ -272,6 +274,16 @@ mod tests {
     fn test_draw_ui_context_mode_snapshot() {
         let mut terminal = Terminal::new(TestBackend::new(80, 20)).unwrap();
         let app = create_app_state_for_test(&AppMode::ContextMenu);
+
+        terminal.draw(|f| draw_ui(f, &app)).unwrap();
+
+        insta::assert_snapshot!(terminal.backend());
+    }
+
+    #[test]
+    fn test_draw_ui_log_mode_snapshot() {
+        let mut terminal = Terminal::new(TestBackend::new(80, 20)).unwrap();
+        let app = create_app_state_for_test(&AppMode::Logs);
 
         terminal.draw(|f| draw_ui(f, &app)).unwrap();
 

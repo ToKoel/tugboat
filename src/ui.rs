@@ -16,7 +16,7 @@ use ratatui::{
     text::{Line, Span},
     widgets::{
         Block, Borders, Cell, Clear, List, ListItem, ListState, Paragraph, Row, Scrollbar,
-        ScrollbarState, Table, Wrap,
+        ScrollbarState, Table, Wrap, block::title,
     },
 };
 
@@ -84,18 +84,18 @@ fn draw_ui(f: &mut Frame, app_state: &AppState) {
 
     match app_state.mode {
         AppMode::Normal => {
-            draw_normal_mode(f, area, app_state);
+            draw_normal_mode(f, area, app_state, false);
         }
         AppMode::ContextMenu => {
-            draw_normal_mode(f, area, app_state);
+            draw_normal_mode(f, area, app_state, true);
             draw_context_mode(f, area, app_state);
         }
         AppMode::Logs => {
-            draw_normal_mode(f, area, app_state);
+            draw_normal_mode(f, area, app_state, true);
             draw_logs_mode(f, area, app_state);
         }
         AppMode::Search => {
-            draw_normal_mode(f, area, app_state);
+            draw_normal_mode(f, area, app_state, true);
             let log_area = draw_logs_mode(f, area, app_state);
             draw_search_mode(f, log_area, app_state);
         }
@@ -245,7 +245,7 @@ fn get_constraints(percent: u16) -> Vec<Constraint> {
     ]
 }
 
-fn draw_normal_mode(f: &mut Frame, area: Rect, app_state: &AppState) {
+fn draw_normal_mode(f: &mut Frame, area: Rect, app_state: &AppState, blurred: bool) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .margin(1)
@@ -257,11 +257,14 @@ fn draw_normal_mode(f: &mut Frame, area: Rect, app_state: &AppState) {
         .iter()
         .enumerate()
         .map(|(i, item)| {
-            let style = if i == app_state.selected {
+            let mut style = if i == app_state.selected {
                 Style::default().add_modifier(Modifier::REVERSED)
             } else {
                 Style::default()
             };
+            if blurred {
+                style = style.add_modifier(Modifier::DIM);
+            }
             Row::new(
                 item.1
                     .iter()
@@ -274,6 +277,13 @@ fn draw_normal_mode(f: &mut Frame, area: Rect, app_state: &AppState) {
 
     let widths = [Constraint::Min(10); 5];
 
+    let mut header_style = Style::default().add_modifier(Modifier::BOLD);
+    let mut title_style = Style::default();
+    if blurred {
+        header_style = header_style.add_modifier(Modifier::DIM);
+        title_style = title_style.add_modifier(Modifier::DIM);
+    }
+
     let table = Table::new(rows, widths)
         .header(
             Row::new(vec![
@@ -283,12 +293,13 @@ fn draw_normal_mode(f: &mut Frame, area: Rect, app_state: &AppState) {
                 Cell::from("Names"),
                 Cell::from("IP"),
             ])
-            .style(Style::default().add_modifier(Modifier::BOLD)),
+            .style(header_style),
         )
         .block(
             Block::default()
                 .title("Docker Containers")
-                .borders(Borders::ALL),
+                .borders(Borders::ALL)
+                .style(title_style),
         );
 
     f.render_widget(table, chunks[0]);

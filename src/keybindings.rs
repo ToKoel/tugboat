@@ -72,7 +72,7 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
                 }
                 AppMode::Logs => {
                     app.user_scrolled = true;
-                    app.vertical_scroll = app.vertical_scroll.saturating_sub(1);
+                    app.vertical_scroll = app.vertical_scroll.saturating_add(1);
                     Action::Continue
                 }
                 AppMode::ContextMenu => {

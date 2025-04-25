@@ -191,9 +191,15 @@ mod tests {
         assert_eq!(action, Action::Continue);
 
         app.selected = 1;
-        let action_2 = app.handle_input(KeyCode::Char('k'));
+        let action = app.handle_input(KeyCode::Char('k'));
         assert_eq!(app.selected, 0);
-        assert_eq!(action_2, Action::Continue);
+        assert_eq!(action, Action::Continue);
+
+        app.vertical_scroll = 1;
+        app.mode = AppMode::Logs;
+        let action = app.handle_input(KeyCode::Char('k'));
+        assert_eq!(0, app.vertical_scroll);
+        assert_eq!(Action::Continue, action);
     }
 
     #[test]
@@ -201,12 +207,18 @@ mod tests {
         let mut app = get_app_state();
         app.selected = 0;
         let action = app.handle_input(KeyCode::Down);
-        assert_eq!(app.selected, 1);
-        assert_eq!(action, Action::Continue);
+        assert_eq!(1, app.selected);
+        assert_eq!(Action::Continue, action);
 
         app.selected = 0;
         let action = app.handle_input(KeyCode::Char('j'));
-        assert_eq!(app.selected, 1);
-        assert_eq!(action, Action::Continue);
+        assert_eq!(1, app.selected);
+        assert_eq!(Action::Continue, action);
+
+        app.vertical_scroll = 0;
+        app.mode = AppMode::Logs;
+        let action = app.handle_input(KeyCode::Char('j'));
+        assert_eq!(1, app.vertical_scroll);
+        assert_eq!(Action::Continue, action);
     }
 }

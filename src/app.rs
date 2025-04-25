@@ -4,7 +4,7 @@ use ratatui::crossterm::event::KeyCode;
 use smart_default::SmartDefault;
 use tokio::{sync::RwLock, task::JoinHandle};
 
-use crate::keybindings::{default_keybindings, matches_keys};
+use crate::keybindings::default_keybindings;
 
 #[derive(Clone, Copy, Default, Debug, PartialEq, Eq)]
 pub enum AppMode {
@@ -48,7 +48,16 @@ pub type SharedState = Arc<RwLock<AppState>>;
 impl AppState {
     pub fn handle_input(&mut self, key: KeyCode) -> Action {
         for binding in default_keybindings() {
-            if binding.matchers.iter().any(|m| matches_keys(&key, m)) {
+            if self.mode == AppMode::Search {
+                let search_keys = [KeyCode::Backspace, KeyCode::Enter, KeyCode::Esc];
+                if !search_keys.contains(&key) {
+                    if let KeyCode::Char(c) = key {
+                        self.search_query.push(c);
+                        return Action::Continue;
+                    }
+                }
+            }
+            if binding.keys.contains(&key) {
                 return (binding.action)(self, &key);
             }
         }
@@ -99,6 +108,46 @@ mod tests {
 
         let result = app.handle_input(KeyCode::Esc);
         assert_eq!(Action::Exit, result);
+    }
+
+    #[test]
+    fn esc_exits_search_input_and_clears_input() {
+        let mut app = get_app_state();
+        app.mode = AppMode::Search;
+        app.search_query = "test".to_string();
+        let action = app.handle_input(KeyCode::Esc);
+        assert_eq!(Action::Continue, action);
+        assert_eq!(AppMode::Logs, app.mode);
+        assert_eq!("".to_string(), app.search_query);
+    }
+
+    #[test]
+    fn enter_exits_search_input() {
+        let mut app = get_app_state();
+        app.mode = AppMode::Search;
+        app.search_query = "test".to_string();
+        let action = app.handle_input(KeyCode::Enter);
+        assert_eq!(Action::Continue, action);
+        assert_eq!(AppMode::Logs, app.mode);
+        assert_eq!("test".to_string(), app.search_query);
+    }
+
+    #[test]
+    fn bound_keys_can_be_entered_in_search() {
+        let mut app = get_app_state();
+        app.mode = AppMode::Search;
+        let action = app.handle_input(KeyCode::Char('h'));
+        assert_eq!(Action::Continue, action);
+        assert_eq!("h".to_string(), app.search_query);
+    }
+
+    #[test]
+    fn question_mark_opens_help() {
+        let mut app = get_app_state();
+        app.mode = AppMode::Logs;
+        let action = app.handle_input(KeyCode::Char('?'));
+        assert_eq!(Action::Continue, action);
+        assert_eq!(AppMode::Help, app.mode);
     }
 
     #[test]

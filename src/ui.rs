@@ -1,6 +1,4 @@
 use std::{
-    collections::HashSet,
-    fmt::Debug,
     io::{self},
     time::Duration,
 };
@@ -25,7 +23,7 @@ use ratatui::{
 use crate::{
     app::{Action, AppMode, AppState, SharedState},
     docker::stream_logs,
-    keybindings::{KeyMatch, default_keybindings},
+    keybindings::default_keybindings,
 };
 
 pub async fn start_ui(app_state: SharedState) -> Result<(), io::Error> {
@@ -108,18 +106,10 @@ fn draw_ui(f: &mut Frame, app_state: &AppState) {
 }
 
 fn draw_help(f: &mut Frame, area: Rect) {
-    let mut lines: Vec<Line> = default_keybindings()
+    let lines: Vec<Line> = default_keybindings()
         .iter()
         .map(|binding| {
-            let keys: Vec<String> = binding
-                .matchers
-                .iter()
-                .map(|m| match m {
-                    KeyMatch::Exact(key) => format!("{}", key),
-                    _ => "".to_string(),
-                })
-                .filter(|key_string| !key_string.is_empty())
-                .collect();
+            let keys: Vec<String> = binding.keys.iter().map(|key| format!("{}", key)).collect();
             let key_text = keys.join(" / ");
 
             Line::from(vec![
@@ -339,7 +329,7 @@ mod tests {
             logs: std::iter::repeat_n("log_line".to_string(), 50).collect(),
             vertical_scroll: 10,
             search_query: "log".to_string(),
-            mode: app_mode.clone(),
+            mode: *app_mode,
             ..Default::default()
         }
     }

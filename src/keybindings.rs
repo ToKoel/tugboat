@@ -3,29 +3,15 @@ use ratatui::crossterm::event::KeyCode;
 use crate::app::{Action, AppMode, AppState};
 
 pub struct KeyBinding {
-    pub matchers: Vec<KeyMatch>,
+    pub keys: Vec<KeyCode>,
     pub description: &'static str,
     pub action: fn(&mut AppState, &KeyCode) -> Action,
-}
-
-pub enum KeyMatch {
-    Exact(KeyCode),
-    MatchFn(fn(&KeyCode) -> bool),
-}
-pub fn matches_keys(k: &KeyCode, matcher: &KeyMatch) -> bool {
-    match matcher {
-        KeyMatch::Exact(kk) => k == kk,
-        KeyMatch::MatchFn(f) => f(k),
-    }
 }
 
 pub fn default_keybindings() -> Vec<KeyBinding> {
     vec![
         KeyBinding {
-            matchers: vec![
-                KeyMatch::Exact(KeyCode::Esc),
-                KeyMatch::Exact(KeyCode::Char('q')),
-            ],
+            keys: vec![KeyCode::Esc, KeyCode::Char('q')],
             description: "Quit / Close dialog",
             action: |app, _| match app.mode {
                 AppMode::Normal => Action::Exit,
@@ -38,6 +24,8 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
                 }
                 AppMode::Search => {
                     app.mode = AppMode::Logs;
+                    app.search_query.clear();
+                    app.search_matches.clear();
                     Action::Continue
                 }
                 AppMode::ContextMenu => {
@@ -51,10 +39,7 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
             },
         },
         KeyBinding {
-            matchers: vec![
-                KeyMatch::Exact(KeyCode::Up),
-                KeyMatch::Exact(KeyCode::Char('k')),
-            ],
+            keys: vec![KeyCode::Up, KeyCode::Char('k')],
             description: "Scroll up",
             action: |app, _| match app.mode {
                 AppMode::Normal => {
@@ -78,10 +63,7 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
             },
         },
         KeyBinding {
-            matchers: vec![
-                KeyMatch::Exact(KeyCode::Down),
-                KeyMatch::Exact(KeyCode::Char('j')),
-            ],
+            keys: vec![KeyCode::Down, KeyCode::Char('j')],
             description: "Scroll down",
             action: |app, _| match app.mode {
                 AppMode::Normal => {
@@ -105,10 +87,7 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
             },
         },
         KeyBinding {
-            matchers: vec![
-                KeyMatch::Exact(KeyCode::Left),
-                KeyMatch::Exact(KeyCode::Char('h')),
-            ],
+            keys: vec![KeyCode::Left, KeyCode::Char('h')],
             description: "Scroll left",
             action: |app, _| match app.mode {
                 AppMode::Logs => {
@@ -119,10 +98,7 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
             },
         },
         KeyBinding {
-            matchers: vec![
-                KeyMatch::Exact(KeyCode::Right),
-                KeyMatch::Exact(KeyCode::Char('l')),
-            ],
+            keys: vec![KeyCode::Right, KeyCode::Char('l')],
             description: "Scroll right",
             action: |app, _| match app.mode {
                 AppMode::Logs => {
@@ -133,7 +109,7 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
             },
         },
         KeyBinding {
-            matchers: vec![KeyMatch::Exact(KeyCode::Enter)],
+            keys: vec![KeyCode::Enter],
             description: "Open / confirm",
             action: |app, _| match app.mode {
                 AppMode::Normal => {
@@ -176,7 +152,7 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
             },
         },
         KeyBinding {
-            matchers: vec![KeyMatch::Exact(KeyCode::Backspace)],
+            keys: vec![KeyCode::Backspace],
             description: "Delete character in search",
             action: |app, _| match app.mode {
                 AppMode::Search => {
@@ -187,7 +163,7 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
             },
         },
         KeyBinding {
-            matchers: vec![KeyMatch::Exact(KeyCode::Char('G'))],
+            keys: vec![KeyCode::Char('G')],
             description: "Jump to latest log entry",
             action: |app, _| match app.mode {
                 AppMode::Logs => {
@@ -199,7 +175,7 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
             },
         },
         KeyBinding {
-            matchers: vec![KeyMatch::Exact(KeyCode::Char('/'))],
+            keys: vec![KeyCode::Char('/')],
             description: "Open search",
             action: |app, _| match app.mode {
                 AppMode::Logs => {
@@ -211,7 +187,7 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
             },
         },
         KeyBinding {
-            matchers: vec![KeyMatch::Exact(KeyCode::Char('n'))],
+            keys: vec![KeyCode::Char('n')],
             description: "Jump to next match",
             action: |app, _| match app.mode {
                 AppMode::Logs => {
@@ -229,7 +205,7 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
             },
         },
         KeyBinding {
-            matchers: vec![KeyMatch::Exact(KeyCode::Char('N'))],
+            keys: vec![KeyCode::Char('N')],
             description: "Jump to previous match",
             action: |app, _| match app.mode {
                 AppMode::Logs => {
@@ -247,25 +223,12 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
             },
         },
         KeyBinding {
-            matchers: vec![KeyMatch::Exact(KeyCode::Char('?'))],
+            keys: vec![KeyCode::Char('?')],
             description: "Open help",
             action: |app, _| {
                 app.last_mode = app.mode;
                 app.mode = AppMode::Help;
                 Action::Continue
-            },
-        },
-        KeyBinding {
-            matchers: vec![KeyMatch::MatchFn(|k| matches!(k, KeyCode::Char(_)))],
-            description: "Raw input for search",
-            action: |app, key| match app.mode {
-                AppMode::Search => {
-                    if let KeyCode::Char(c) = key {
-                        app.search_query.push(*c);
-                    }
-                    Action::Continue
-                }
-                _ => Action::Continue,
             },
         },
     ]

@@ -1,0 +1,24 @@
+---
+source: src/ui.rs
+expression: terminal.backend()
+---
+"                                                                                "
+"                                                                                "
+"                                                                                "
+"                ┌Help - Key Bindings───────────────────────────┐                "
+"                │Esc / q — Quit / Close dialog                 │                "
+"                │Up / k — Scroll up                            │                "
+"                │Down / j — Scroll down                        │                "
+"                │Left / h — Scroll left                        │                "
+"                │Right / l — Scroll right                      │                "
+"                │Return — Open / confirm                       │                "
+"                │Delete — Delete character in search           │                "
+"                │G — Jump to latest log entry                  │                "
+"                │/ — Open search                               │                "
+"                │n — Jump to next match                        │                "
+"                │N — Jump to previous match                    │                "
+"                │? — Open help                                 │                "
+"                └──────────────────────────────────────────────┘                "
+"                                                                                "
+"                                                                                "
+"                                                                                "

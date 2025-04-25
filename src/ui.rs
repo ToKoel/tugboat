@@ -355,6 +355,16 @@ mod tests {
     }
 
     #[test]
+    fn test_draw_ui_help_mode_snapshot() {
+        let mut terminal = Terminal::new(TestBackend::new(80, 20)).unwrap();
+        let app = create_app_state_for_test(&AppMode::Help);
+
+        terminal.draw(|f| draw_ui(f, &app)).unwrap();
+
+        insta::assert_snapshot!(terminal.backend());
+    }
+
+    #[test]
     fn test_draw_ui_log_mode_snapshot() {
         let mut terminal = Terminal::new(TestBackend::new(80, 20)).unwrap();
         let app = create_app_state_for_test(&AppMode::Logs);

@@ -24,6 +24,8 @@ pub enum Action {
 
 #[derive(SmartDefault)]
 pub struct AppState {
+    #[default = true]
+    pub running: bool,
     pub container_data: Vec<(String, Vec<String>)>,
     pub selected: usize,
     pub mode: AppMode,
@@ -46,22 +48,21 @@ pub struct AppState {
 pub type SharedState = Arc<RwLock<AppState>>;
 
 impl AppState {
-    pub fn handle_input(&mut self, key: KeyCode) -> Action {
+    pub fn handle_input(&mut self, key: KeyCode) {
         for binding in default_keybindings() {
             if self.mode == AppMode::Search {
                 let search_keys = [KeyCode::Backspace, KeyCode::Enter, KeyCode::Esc];
                 if !search_keys.contains(&key) {
                     if let KeyCode::Char(c) = key {
                         self.search_query.push(c);
-                        return Action::Continue;
+                        return;
                     }
                 }
             }
             if binding.keys.contains(&key) {
-                return (binding.action)(self, &key);
+                (binding.action)(self, &key);
             }
         }
-        Action::Continue
     }
 }
 
@@ -106,8 +107,8 @@ mod tests {
             ..Default::default()
         };
 
-        let result = app.handle_input(KeyCode::Esc);
-        assert_eq!(Action::Exit, result);
+        app.handle_input(KeyCode::Esc);
+        assert_eq!(false, app.running);
     }
 
     #[test]
@@ -115,8 +116,7 @@ mod tests {
         let mut app = get_app_state();
         app.mode = AppMode::Search;
         app.search_query = "test".to_string();
-        let action = app.handle_input(KeyCode::Esc);
-        assert_eq!(Action::Continue, action);
+        app.handle_input(KeyCode::Esc);
         assert_eq!(AppMode::Logs, app.mode);
         assert_eq!("".to_string(), app.search_query);
     }
@@ -126,8 +126,7 @@ mod tests {
         let mut app = get_app_state();
         app.mode = AppMode::Search;
         app.search_query = "test".to_string();
-        let action = app.handle_input(KeyCode::Enter);
-        assert_eq!(Action::Continue, action);
+        app.handle_input(KeyCode::Enter);
         assert_eq!(AppMode::Logs, app.mode);
         assert_eq!("test".to_string(), app.search_query);
     }
@@ -136,8 +135,7 @@ mod tests {
     fn bound_keys_can_be_entered_in_search() {
         let mut app = get_app_state();
         app.mode = AppMode::Search;
-        let action = app.handle_input(KeyCode::Char('h'));
-        assert_eq!(Action::Continue, action);
+        app.handle_input(KeyCode::Char('h'));
         assert_eq!("h".to_string(), app.search_query);
     }
 
@@ -145,16 +143,14 @@ mod tests {
     fn question_mark_opens_help() {
         let mut app = get_app_state();
         app.mode = AppMode::Logs;
-        let action = app.handle_input(KeyCode::Char('?'));
-        assert_eq!(Action::Continue, action);
+        app.handle_input(KeyCode::Char('?'));
         assert_eq!(AppMode::Help, app.mode);
     }
 
     #[test]
     fn enter_opens_context_menu() {
         let mut app = get_app_state();
-        let action = app.handle_input(KeyCode::Enter);
-        assert_eq!(Action::Continue, action);
+        app.handle_input(KeyCode::Enter);
         assert_eq!(AppMode::ContextMenu, app.mode);
     }
 
@@ -163,10 +159,8 @@ mod tests {
         let mut app = get_app_state();
         app.mode = AppMode::ContextMenu;
         app.menu_selected = 1;
-        let action = app.handle_input(KeyCode::Up);
-        let action_2 = app.handle_input(KeyCode::Enter);
-        assert_eq!(Action::Continue, action);
-        assert_eq!(Action::Continue, action_2);
+        app.handle_input(KeyCode::Up);
+        app.handle_input(KeyCode::Enter);
         assert_eq!(AppMode::Logs, app.mode);
     }
 
@@ -174,10 +168,8 @@ mod tests {
     fn slash_opens_search() {
         let mut app = get_app_state();
         app.mode = AppMode::Logs;
-        let action = app.handle_input(KeyCode::Char('/'));
-        let action_2 = app.handle_input(KeyCode::Char('a'));
-        assert_eq!(Action::Continue, action);
-        assert_eq!(Action::Continue, action_2);
+        app.handle_input(KeyCode::Char('/'));
+        app.handle_input(KeyCode::Char('a'));
         assert_eq!(AppMode::Search, app.mode);
         assert_eq!("a".to_string(), app.search_query);
     }
@@ -186,39 +178,33 @@ mod tests {
     fn handle_input_scroll_up() {
         let mut app = get_app_state();
         app.selected = 1;
-        let action = app.handle_input(KeyCode::Up);
+        app.handle_input(KeyCode::Up);
         assert_eq!(app.selected, 0);
-        assert_eq!(action, Action::Continue);
 
         app.selected = 1;
-        let action = app.handle_input(KeyCode::Char('k'));
+        app.handle_input(KeyCode::Char('k'));
         assert_eq!(app.selected, 0);
-        assert_eq!(action, Action::Continue);
 
         app.vertical_scroll = 1;
         app.mode = AppMode::Logs;
-        let action = app.handle_input(KeyCode::Char('k'));
+        app.handle_input(KeyCode::Char('k'));
         assert_eq!(0, app.vertical_scroll);
-        assert_eq!(Action::Continue, action);
     }
 
     #[test]
     fn handle_input_scroll_down() {
         let mut app = get_app_state();
         app.selected = 0;
-        let action = app.handle_input(KeyCode::Down);
+        app.handle_input(KeyCode::Down);
         assert_eq!(1, app.selected);
-        assert_eq!(Action::Continue, action);
 
         app.selected = 0;
-        let action = app.handle_input(KeyCode::Char('j'));
+        app.handle_input(KeyCode::Char('j'));
         assert_eq!(1, app.selected);
-        assert_eq!(Action::Continue, action);
 
         app.vertical_scroll = 0;
         app.mode = AppMode::Logs;
-        let action = app.handle_input(KeyCode::Char('j'));
+        app.handle_input(KeyCode::Char('j'));
         assert_eq!(1, app.vertical_scroll);
-        assert_eq!(Action::Continue, action);
     }
 }

@@ -1,11 +1,11 @@
 use ratatui::crossterm::event::KeyCode;
 
-use crate::app::{Action, AppMode, AppState};
+use crate::app::{AppMode, AppState};
 
 pub struct KeyBinding {
     pub keys: Vec<KeyCode>,
     pub description: &'static str,
-    pub action: fn(&mut AppState, &KeyCode) -> Action,
+    pub action: fn(&mut AppState, &KeyCode),
 }
 
 pub fn default_keybindings() -> Vec<KeyBinding> {
@@ -14,27 +14,31 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
             keys: vec![KeyCode::Esc, KeyCode::Char('q')],
             description: "Quit / Close dialog",
             action: |app, _| match app.mode {
-                AppMode::Normal => Action::Exit,
+                AppMode::Normal => app.running = false,
                 AppMode::Logs => {
                     if let Some(handle) = app.log_task.take() {
                         handle.abort();
                     }
                     app.mode = AppMode::Normal;
-                    Action::Continue
                 }
                 AppMode::Search => {
                     app.mode = AppMode::Logs;
                     app.search_query.clear();
                     app.search_matches.clear();
-                    Action::Continue
                 }
                 AppMode::ContextMenu => {
                     app.mode = AppMode::Normal;
-                    Action::Continue
                 }
                 AppMode::Help => {
                     app.mode = app.last_mode;
-                    Action::Continue
+                }
+                AppMode::Resources => {
+                    if let Some(handle) = app.stats_task.take() {
+                        handle.abort();
+                    }
+                    app.mode = AppMode::Normal;
+                    app.cpu_data.clear();
+                    app.mem_data.clear();
                 }
             },
         },
@@ -44,12 +48,10 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
             action: |app, _| match app.mode {
                 AppMode::Normal => {
                     app.selected = app.selected.saturating_sub(1);
-                    Action::Continue
                 }
                 AppMode::Logs => {
                     app.user_scrolled = true;
                     app.vertical_scroll = app.vertical_scroll.saturating_sub(1);
-                    Action::Continue
                 }
                 AppMode::ContextMenu => {
                     if app.menu_selected > 0 {
@@ -57,9 +59,8 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
                     } else {
                         app.menu_selected = app.menu_items.len() - 1;
                     }
-                    Action::Continue
                 }
-                _ => Action::Continue,
+                _ => {}
             },
         },
         KeyBinding {
@@ -68,12 +69,10 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
             action: |app, _| match app.mode {
                 AppMode::Normal => {
                     app.selected = app.selected.saturating_add(1);
-                    Action::Continue
                 }
                 AppMode::Logs => {
                     app.user_scrolled = true;
                     app.vertical_scroll = app.vertical_scroll.saturating_add(1);
-                    Action::Continue
                 }
                 AppMode::ContextMenu => {
                     if app.menu_selected + 1 < app.menu_items.len() {
@@ -81,9 +80,8 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
                     } else {
                         app.menu_selected = 0;
                     }
-                    Action::Continue
                 }
-                _ => Action::Continue,
+                _ => {}
             },
         },
         KeyBinding {
@@ -92,9 +90,8 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
             action: |app, _| match app.mode {
                 AppMode::Logs => {
                     app.horizontal_scroll = app.horizontal_scroll.saturating_sub(10);
-                    Action::Continue
                 }
-                _ => Action::Continue,
+                _ => {}
             },
         },
         KeyBinding {
@@ -103,9 +100,8 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
             action: |app, _| match app.mode {
                 AppMode::Logs => {
                     app.horizontal_scroll = app.horizontal_scroll.saturating_add(10);
-                    Action::Continue
                 }
-                _ => Action::Continue,
+                _ => {}
             },
         },
         KeyBinding {
@@ -115,19 +111,19 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
                 AppMode::Normal => {
                     app.mode = AppMode::ContextMenu;
                     app.menu_selected = 0;
-                    Action::Continue
                 }
                 AppMode::ContextMenu => match app.menu_selected {
                     0 => {
                         app.mode = AppMode::Logs;
                         app.logs = vec!["Loading logs...".to_string()];
-                        Action::Continue
                     }
                     1 => {
-                        app.mode = AppMode::Normal;
-                        Action::Continue
+                        app.mode = AppMode::Resources;
                     }
-                    _ => Action::Continue,
+                    2 => {
+                        app.mode = AppMode::Normal;
+                    }
+                    _ => {}
                 },
                 AppMode::Search => {
                     app.search_matches = app
@@ -146,9 +142,8 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
                         app.vertical_scroll = app.search_matches[index] as u16;
                     }
                     app.mode = AppMode::Logs;
-                    Action::Continue
                 }
-                _ => Action::Continue,
+                _ => {}
             },
         },
         KeyBinding {
@@ -157,9 +152,8 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
             action: |app, _| match app.mode {
                 AppMode::Search => {
                     app.search_query.pop();
-                    Action::Continue
                 }
-                _ => Action::Continue,
+                _ => {}
             },
         },
         KeyBinding {
@@ -169,9 +163,8 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
                 AppMode::Logs => {
                     app.user_scrolled = false;
                     app.vertical_scroll = app.logs.len().saturating_sub(15) as u16;
-                    Action::Continue
                 }
-                _ => Action::Continue,
+                _ => {}
             },
         },
         KeyBinding {
@@ -181,9 +174,8 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
                 AppMode::Logs => {
                     app.mode = AppMode::Search;
                     app.search_query.clear();
-                    Action::Continue
                 }
-                _ => Action::Continue,
+                _ => {}
             },
         },
         KeyBinding {
@@ -199,9 +191,8 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
                                 app.search_matches[app.current_match_index.unwrap()] as u16;
                         }
                     }
-                    Action::Continue
                 }
-                _ => Action::Continue,
+                _ => {}
             },
         },
         KeyBinding {
@@ -217,9 +208,8 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
                                 app.search_matches[app.current_match_index.unwrap()] as u16
                         }
                     }
-                    Action::Continue
                 }
-                _ => Action::Continue,
+                _ => {}
             },
         },
         KeyBinding {
@@ -228,7 +218,6 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
             action: |app, _| {
                 app.last_mode = app.mode;
                 app.mode = AppMode::Help;
-                Action::Continue
             },
         },
     ]

@@ -21,8 +21,8 @@ use ratatui::{
 };
 
 use crate::{
-    app::{Action, AppMode, AppState, SharedState},
     docker::stream_logs,
+    app::{AppMode, AppState, SharedState},
     keybindings::default_keybindings,
 };
 
@@ -39,33 +39,32 @@ pub async fn start_ui(app_state: SharedState) -> Result<(), io::Error> {
             terminal.draw(|f| {
                 draw_ui(f, &app);
             })?;
+            if !app.running {
+                break;
+            }
         }
 
         if event::poll(Duration::from_millis(200))? {
             let mut app = app_state.write().await;
             if let Event::Key(key_event) = event::read()? {
-                match app.handle_input(key_event.code) {
-                    Action::Exit => break,
-                    Action::Continue => {
-                        if app.mode == AppMode::Logs
-                            && app.logs == vec!["Loading logs...".to_string()]
-                        {
-                            terminal.draw(|f| {
-                                draw_ui(f, &app);
-                                let area = f.area();
-                                let overlay_area = centered_rect(80, 80, area);
-                                let visible_height = overlay_area.height.saturating_sub(2);
-                                app.visible_height = visible_height;
-                            })?;
+                app.handle_input(key_event.code);
+                if app.mode == AppMode::Logs && app.logs == vec!["Loading logs...".to_string()] {
+                    terminal.draw(|f| {
+                        draw_ui(f, &app);
+                        let area = f.area();
+                        let overlay_area = centered_rect(80, 80, area);
+                        let visible_height = overlay_area.height.saturating_sub(2);
+                        app.visible_height = visible_height;
+                    })?;
 
-                            let container_id = app.container_data[app.selected].0.clone();
-                            drop(app);
-                            let log_task = stream_logs(container_id, app_state.clone());
-
-                            let mut app = app_state.write().await;
-                            app.log_task = Some(log_task);
-                        }
-                    }
+                    let container_id = app.container_data[app.selected].0.clone();
+                    let log_task = stream_logs(container_id, app_state.clone());
+                    app.log_task = Some(log_task);
+                }
+                if app.mode == AppMode::Resources {
+                    let container_id = app.container_data[app.selected].0.clone();
+                    let stats_task = stream_stats(container_id, app_state.clone());
+                    app.stats_task = Some(stats_task);
                 }
             }
         }

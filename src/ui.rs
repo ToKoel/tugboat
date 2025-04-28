@@ -1,6 +1,7 @@
 use std::{
     io::{self},
     time::Duration,
+    vec,
 };
 
 use ratatui::{
@@ -8,21 +9,23 @@ use ratatui::{
     crossterm::{
         event::{self, DisableMouseCapture, EnableMouseCapture, Event},
         execute,
+        style::Stylize,
         terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
     },
     layout::{Alignment, Constraint, Direction, Layout, Margin, Rect},
     prelude::CrosstermBackend,
     style::{Color, Modifier, Style},
+    symbols,
     text::{Line, Span},
     widgets::{
-        Block, Borders, Cell, Clear, List, ListItem, ListState, Paragraph, Row, Scrollbar,
-        ScrollbarState, Table, Wrap, block::title,
+        Axis, Block, Borders, Cell, Chart, Clear, Dataset, List, ListItem, ListState, Paragraph,
+        Row, Scrollbar, ScrollbarState, Table, Wrap,
     },
 };
 
 use crate::{
-    docker::stream_logs,
     app::{AppMode, AppState, SharedState},
+    docker::{stream_logs, stream_stats},
     keybindings::default_keybindings,
 };
 
@@ -101,7 +104,68 @@ fn draw_ui(f: &mut Frame, app_state: &AppState) {
         AppMode::Help => {
             draw_help(f, area);
         }
+        AppMode::Resources => {
+            draw_normal_mode(f, area, app_state, true);
+            draw_resource_graph(f, area, app_state);
+        }
     }
+}
+
+fn draw_resource_graph(f: &mut Frame, area: Rect, app_state: &AppState) {
+    let cpu_points: Vec<(f64, f64)> = app_state.cpu_data.iter().cloned().collect();
+    let cpu_dataset = Dataset::default()
+        .name("CPU %")
+        .marker(symbols::Marker::Braille)
+        .graph_type(ratatui::widgets::GraphType::Line)
+        .style(Style::default().fg(Color::Green))
+        .data(&cpu_points);
+
+    // let mem_dataset = Dataset::default()
+    //     .name("Memory %")
+    //     .marker(symbols::Marker::Braille)
+    //     .style(Style::default().fg(Color::Blue))
+    //     .data(&app_state.mem_data);
+    //
+    let mut x_start = 0.0;
+    let mut x_end = 1.0;
+    if !cpu_points.is_empty() {
+        x_start = cpu_points[0].0;
+        x_end = cpu_points[cpu_points.len() - 1].0;
+    }
+    let rounded_start = x_start.round() as i64;
+    let rounded_end = x_end.round() as i64;
+
+    let chart = Chart::new(vec![cpu_dataset])
+        .block(Block::default().borders(Borders::NONE))
+        .x_axis(
+            Axis::default()
+                .title("Time (s)")
+                .bounds([x_start, x_end])
+                .labels(vec![rounded_start.to_string(), rounded_end.to_string()]),
+        )
+        .y_axis(
+            Axis::default()
+                .title("Usage %")
+                .style(Style::default().fg(Color::Gray))
+                .bounds([-1.0, 101.0])
+                .labels(vec!["0.0".to_string(), "50.0".into(), "100.0".into()]),
+        );
+
+    let overlay_area = centered_rect(80, 80, area);
+    let outer_block = Block::default()
+        .title("Resource Usage")
+        .borders(Borders::ALL)
+        .style(Style::default().bg(Color::Black));
+    f.render_widget(Clear, overlay_area);
+    f.render_widget(outer_block, overlay_area);
+
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .margin(1)
+        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+        .split(overlay_area);
+
+    f.render_widget(chart, centered_rect(90, 90, chunks[0]));
 }
 
 fn draw_help(f: &mut Frame, area: Rect) {

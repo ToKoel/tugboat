@@ -1,6 +1,8 @@
+use bollard::Docker as BollardDocker;
+use bollard::container::CPUStats;
 use futures::StreamExt;
 use std::{error::Error, pin::Pin};
-use tokio::time::Duration;
+use tokio::time::{Duration, Instant};
 use tokio::{task::JoinHandle, time};
 
 use shiplift::{ContainerListOptions, Docker, LogsOptions, tty::TtyChunk};
@@ -63,9 +65,51 @@ impl DockerApi for shiplift::Docker {
     }
 }
 
+fn calculate_cpu_usage(cpu_stats: CPUStats, pre_cpu_stats: CPUStats) -> Option<f64> {
+    let cpu_delta = cpu_stats.cpu_usage.total_usage - pre_cpu_stats.cpu_usage.total_usage;
+    let system_cpu_delta = cpu_stats.system_cpu_usage? - pre_cpu_stats.system_cpu_usage?;
+    if system_cpu_delta == 0 {
+        return None;
+    }
+    let numper_cpus = cpu_stats.online_cpus?;
+    let cpu_usage = ((cpu_delta as f64 / system_cpu_delta as f64) * numper_cpus as f64) * 100.0;
+    Some(cpu_usage)
+}
+
+pub fn stream_stats(container_id: String, app_state: SharedState) -> JoinHandle<()> {
+    tokio::spawn(async move {
+        let docker = BollardDocker::connect_with_socket_defaults().unwrap();
+        let stream = &mut docker.stats(&container_id, None);
+        let start_time = Instant::now();
+
+        while let Some(result) = stream.next().await {
+            match result {
+                Ok(stats) => {
+                    let cpu_stats = stats.cpu_stats;
+                    let pre_cpu_stats = stats.precpu_stats;
+                    //     let mem = stats.memory_stats.usage;
+                    let timestamp = start_time.elapsed().as_secs_f64();
+                    let cpu_usage_result = calculate_cpu_usage(cpu_stats, pre_cpu_stats);
+                    let mut app = app_state.write().await;
+                    if let Some(cpu) = cpu_usage_result {
+                        if app.cpu_data.len() > 60 {
+                            app.cpu_data.pop_front();
+                        }
+                        app.cpu_data.push_back((timestamp, cpu));
+                    }
+                    // app.mem_data.push((timestamp, mem as f64));
+                    //
+                    //     previous_cpu_read = Some(cpu_stats.clone());
+                }
+                Err(e) => eprintln!("Error: {}", e),
+            }
+        }
+    })
+}
+
 pub fn stream_logs(container_id: String, app_state: SharedState) -> JoinHandle<()> {
     tokio::spawn(async move {
-        let docker = Docker::new();
+        let docker = shiplift::Docker::new();
         let options = LogsOptions::builder()
             .stdout(true)
             .stderr(true)
@@ -140,7 +184,7 @@ async fn flush_buffer(
 }
 
 pub async fn get_container_data() -> Result<Vec<(String, Vec<String>)>, Box<dyn Error>> {
-    let docker = Docker::new();
+    let docker = shiplift::Docker::new();
     get_container_data_with_api(&docker).await
 }
 

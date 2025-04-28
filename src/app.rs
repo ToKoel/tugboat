@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::VecDeque, sync::Arc};
 
 use ratatui::crossterm::event::KeyCode;
 use smart_default::SmartDefault;
@@ -14,12 +14,7 @@ pub enum AppMode {
     Logs,
     Search,
     Help,
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum Action {
-    Continue,
-    Exit,
+    Resources,
 }
 
 #[derive(SmartDefault)]
@@ -32,7 +27,7 @@ pub struct AppState {
     pub last_mode: AppMode,
     pub menu_selected: usize,
     pub logs: Vec<String>,
-    #[default(_code = "vec![\"Show Logs\", \"Restart\"]")]
+    #[default(_code = "vec![\"Logs\", \"Stats\", \"Restart\"]")]
     pub menu_items: Vec<&'static str>,
     pub horizontal_scroll: u16,
     pub vertical_scroll: u16,
@@ -43,6 +38,9 @@ pub struct AppState {
     pub search_query: String,
     pub search_matches: Vec<usize>,
     pub current_match_index: Option<usize>,
+    pub cpu_data: VecDeque<(f64, f64)>,
+    pub mem_data: VecDeque<(f64, f64)>,
+    pub stats_task: Option<JoinHandle<()>>,
 }
 
 pub type SharedState = Arc<RwLock<AppState>>;

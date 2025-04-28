@@ -87,21 +87,19 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
         KeyBinding {
             keys: vec![KeyCode::Left, KeyCode::Char('h')],
             description: "Scroll left",
-            action: |app, _| match app.mode {
-                AppMode::Logs => {
+            action: |app, _| {
+                if app.mode == AppMode::Logs {
                     app.horizontal_scroll = app.horizontal_scroll.saturating_sub(10);
                 }
-                _ => {}
             },
         },
         KeyBinding {
             keys: vec![KeyCode::Right, KeyCode::Char('l')],
             description: "Scroll right",
-            action: |app, _| match app.mode {
-                AppMode::Logs => {
+            action: |app, _| {
+                if app.mode == AppMode::Logs {
                     app.horizontal_scroll = app.horizontal_scroll.saturating_add(10);
                 }
-                _ => {}
             },
         },
         KeyBinding {
@@ -149,40 +147,37 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
         KeyBinding {
             keys: vec![KeyCode::Backspace],
             description: "Delete character in search",
-            action: |app, _| match app.mode {
-                AppMode::Search => {
+            action: |app, _| {
+                if app.mode == AppMode::Search {
                     app.search_query.pop();
                 }
-                _ => {}
             },
         },
         KeyBinding {
             keys: vec![KeyCode::Char('G')],
             description: "Jump to latest log entry",
-            action: |app, _| match app.mode {
-                AppMode::Logs => {
+            action: |app, _| {
+                if app.mode == AppMode::Logs {
                     app.user_scrolled = false;
                     app.vertical_scroll = app.logs.len().saturating_sub(15) as u16;
                 }
-                _ => {}
             },
         },
         KeyBinding {
             keys: vec![KeyCode::Char('/')],
             description: "Open search",
-            action: |app, _| match app.mode {
-                AppMode::Logs => {
+            action: |app, _| {
+                if app.mode == AppMode::Logs {
                     app.mode = AppMode::Search;
                     app.search_query.clear();
                 }
-                _ => {}
             },
         },
         KeyBinding {
             keys: vec![KeyCode::Char('n')],
             description: "Jump to next match",
-            action: |app, _| match app.mode {
-                AppMode::Logs => {
+            action: |app, _| {
+                if app.mode == AppMode::Logs {
                     if let Some(current) = app.current_match_index {
                         if !app.search_matches.is_empty() {
                             app.current_match_index =
@@ -192,14 +187,13 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
                         }
                     }
                 }
-                _ => {}
             },
         },
         KeyBinding {
             keys: vec![KeyCode::Char('N')],
             description: "Jump to previous match",
-            action: |app, _| match app.mode {
-                AppMode::Logs => {
+            action: |app, _| {
+                if app.mode == AppMode::Logs {
                     if let Some(current) = app.current_match_index {
                         if !app.search_matches.is_empty() {
                             let len = app.search_matches.len();
@@ -209,7 +203,6 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
                         }
                     }
                 }
-                _ => {}
             },
         },
         KeyBinding {

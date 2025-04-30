@@ -114,18 +114,18 @@ fn draw_ui(f: &mut Frame, app_state: &AppState) {
 fn draw_resource_graph(f: &mut Frame, area: Rect, app_state: &AppState) {
     let cpu_points: Vec<(f64, f64)> = app_state.cpu_data.iter().cloned().collect();
     let cpu_dataset = Dataset::default()
-        .name("CPU %")
         .marker(symbols::Marker::Braille)
         .graph_type(ratatui::widgets::GraphType::Line)
-        .style(Style::default().fg(Color::Green))
+        .style(Style::default().fg(Color::Cyan))
         .data(&cpu_points);
 
-    // let mem_dataset = Dataset::default()
-    //     .name("Memory %")
-    //     .marker(symbols::Marker::Braille)
-    //     .style(Style::default().fg(Color::Blue))
-    //     .data(&app_state.mem_data);
-    //
+    let mem_points: Vec<(f64, f64)> = app_state.mem_data.iter().cloned().collect();
+    let mem_dataset = Dataset::default()
+        .marker(symbols::Marker::Braille)
+        .graph_type(ratatui::widgets::GraphType::Line)
+        .style(Style::default().fg(Color::Cyan))
+        .data(&mem_points);
+
     let mut x_start = 0.0;
     let mut x_end = 1.0;
     if !cpu_points.is_empty() {
@@ -145,7 +145,23 @@ fn draw_resource_graph(f: &mut Frame, area: Rect, app_state: &AppState) {
         )
         .y_axis(
             Axis::default()
-                .title("Usage %")
+                .title("CPU %")
+                .style(Style::default().fg(Color::Gray))
+                .bounds([-1.0, 101.0])
+                .labels(vec!["0.0".to_string(), "50.0".into(), "100.0".into()]),
+        );
+
+    let mem_chart = Chart::new(vec![mem_dataset])
+        .block(Block::default().borders(Borders::NONE))
+        .x_axis(
+            Axis::default()
+                .title("Time (s)")
+                .bounds([x_start, x_end])
+                .labels(vec![rounded_start.to_string(), rounded_end.to_string()]),
+        )
+        .y_axis(
+            Axis::default()
+                .title("Memory %")
                 .style(Style::default().fg(Color::Gray))
                 .bounds([-1.0, 101.0])
                 .labels(vec!["0.0".to_string(), "50.0".into(), "100.0".into()]),
@@ -166,6 +182,7 @@ fn draw_resource_graph(f: &mut Frame, area: Rect, app_state: &AppState) {
         .split(overlay_area);
 
     f.render_widget(chart, centered_rect(90, 90, chunks[0]));
+    f.render_widget(mem_chart, centered_rect(90, 90, chunks[1]));
 }
 
 fn draw_help(f: &mut Frame, area: Rect) {

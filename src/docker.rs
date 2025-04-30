@@ -1,5 +1,5 @@
 use bollard::Docker as BollardDocker;
-use bollard::container::CPUStats;
+use bollard::container::{CPUStats, MemoryStats, MemoryStatsStats, MemoryStatsStatsV1};
 use futures::StreamExt;
 use std::{error::Error, pin::Pin};
 use tokio::time::{Duration, Instant};
@@ -66,14 +66,32 @@ impl DockerApi for shiplift::Docker {
 }
 
 fn calculate_cpu_usage(cpu_stats: CPUStats, pre_cpu_stats: CPUStats) -> Option<f64> {
-    let cpu_delta = cpu_stats.cpu_usage.total_usage - pre_cpu_stats.cpu_usage.total_usage;
-    let system_cpu_delta = cpu_stats.system_cpu_usage? - pre_cpu_stats.system_cpu_usage?;
-    if system_cpu_delta == 0 {
+    let cpu_delta: f64 =
+        cpu_stats.cpu_usage.total_usage as f64 - pre_cpu_stats.cpu_usage.total_usage as f64;
+    let system_cpu_delta =
+        cpu_stats.system_cpu_usage? as f64 - pre_cpu_stats.system_cpu_usage? as f64;
+    if system_cpu_delta == 0. {
         return None;
     }
     let numper_cpus = cpu_stats.online_cpus?;
-    let cpu_usage = ((cpu_delta as f64 / system_cpu_delta as f64) * numper_cpus as f64) * 100.0;
+    let cpu_usage = ((cpu_delta / system_cpu_delta) * numper_cpus as f64) * 100.0;
     Some(cpu_usage)
+}
+
+fn calculate_memory_usage(mem_stats: MemoryStats) -> Option<f64> {
+    let cache = mem_stats.stats.map(|s| {
+        if let MemoryStatsStats::V1(v1) = s {
+            v1.cache
+        } else {
+            0
+        }
+    });
+    let used_memory = mem_stats.usage? - cache?;
+    let available_memory = mem_stats.limit?;
+    if available_memory == 0 {
+        return None;
+    }
+    Some((used_memory as f64 / available_memory as f64) * 100.0)
 }
 
 pub fn stream_stats(container_id: String, app_state: SharedState) -> JoinHandle<()> {
@@ -87,7 +105,6 @@ pub fn stream_stats(container_id: String, app_state: SharedState) -> JoinHandle<
                 Ok(stats) => {
                     let cpu_stats = stats.cpu_stats;
                     let pre_cpu_stats = stats.precpu_stats;
-                    //     let mem = stats.memory_stats.usage;
                     let timestamp = start_time.elapsed().as_secs_f64();
                     let cpu_usage_result = calculate_cpu_usage(cpu_stats, pre_cpu_stats);
                     let mut app = app_state.write().await;
@@ -97,9 +114,14 @@ pub fn stream_stats(container_id: String, app_state: SharedState) -> JoinHandle<
                         }
                         app.cpu_data.push_back((timestamp, cpu));
                     }
-                    // app.mem_data.push((timestamp, mem as f64));
-                    //
-                    //     previous_cpu_read = Some(cpu_stats.clone());
+
+                    let mem = calculate_memory_usage(stats.memory_stats);
+                    if let Some(mem) = mem {
+                        if app.mem_data.len() > 60 {
+                            app.mem_data.pop_front();
+                        }
+                        app.mem_data.push_back((timestamp, mem));
+                    }
                 }
                 Err(e) => eprintln!("Error: {}", e),
             }

@@ -1,16 +1,18 @@
 use bollard::Docker as BollardDocker;
-use bollard::container::{CPUStats, MemoryStats, MemoryStatsStats, MemoryStatsStatsV1};
+use bollard::container::{CPUStats, MemoryStats, MemoryStatsStats};
 use futures::StreamExt;
+use std::cmp::max;
 use std::{error::Error, pin::Pin};
 use tokio::time::{Duration, Instant};
 use tokio::{task::JoinHandle, time};
 
-use shiplift::{ContainerListOptions, Docker, LogsOptions, tty::TtyChunk};
+use shiplift::{ContainerListOptions, LogsOptions, tty::TtyChunk};
 use strip_ansi_escapes::strip;
 
 use async_trait::async_trait;
 
 use crate::app::SharedState;
+use crate::maxSlidingWindow::{self, MaxSlidingWindow};
 
 const MAX_LOG_LINES: usize = 1000;
 const CLEANUP_THRESHOLD: usize = 100;
@@ -100,6 +102,8 @@ pub fn stream_stats(container_id: String, app_state: SharedState) -> JoinHandle<
         let stream = &mut docker.stats(&container_id, None);
         let start_time = Instant::now();
 
+        let mut max_sliding_window = MaxSlidingWindow::<f64>::new();
+
         while let Some(result) = stream.next().await {
             match result {
                 Ok(stats) => {
@@ -110,9 +114,12 @@ pub fn stream_stats(container_id: String, app_state: SharedState) -> JoinHandle<
                     let mut app = app_state.write().await;
                     if let Some(cpu) = cpu_usage_result {
                         if app.cpu_data.len() > 60 {
+                            max_sliding_window.remove();
                             app.cpu_data.pop_front();
                         }
                         app.cpu_data.push_back((timestamp, cpu));
+                        max_sliding_window.add(cpu);
+                        app.current_max_cpu = max_sliding_window.get_max();
                     }
 
                     let mem = calculate_memory_usage(stats.memory_stats);

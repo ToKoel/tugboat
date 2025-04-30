@@ -135,6 +135,9 @@ fn draw_resource_graph(f: &mut Frame, area: Rect, app_state: &AppState) {
     let rounded_start = x_start.round() as i64;
     let rounded_end = x_end.round() as i64;
 
+    let y_end = app_state.current_max_cpu.unwrap_or(101.0);
+    let y_mid = y_end / 2.0;
+
     let chart = Chart::new(vec![cpu_dataset])
         .block(Block::default().borders(Borders::NONE))
         .x_axis(
@@ -147,8 +150,8 @@ fn draw_resource_graph(f: &mut Frame, area: Rect, app_state: &AppState) {
             Axis::default()
                 .title("CPU %")
                 .style(Style::default().fg(Color::Gray))
-                .bounds([-1.0, 101.0])
-                .labels(vec!["0.0".to_string(), "50.0".into(), "100.0".into()]),
+                .bounds([-1.0, y_end])
+                .labels(vec!["0.0".to_string(), format!("{:.2}", y_mid).into(), format!("{:.2}", y_end).into()]),
         );
 
     let mem_chart = Chart::new(vec![mem_dataset])

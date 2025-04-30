@@ -39,6 +39,7 @@ pub struct AppState {
     pub search_matches: Vec<usize>,
     pub current_match_index: Option<usize>,
     pub cpu_data: VecDeque<(f64, f64)>,
+    pub current_max_cpu: Option<f64>,
     pub mem_data: VecDeque<(f64, f64)>,
     pub stats_task: Option<JoinHandle<()>>,
 }

@@ -1,6 +1,7 @@
 mod app;
 mod docker;
 mod keybindings;
+mod maxSlidingWindow;
 mod ui;
 
 use std::{error::Error, sync::Arc};

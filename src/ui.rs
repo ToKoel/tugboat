@@ -9,7 +9,6 @@ use ratatui::{
     crossterm::{
         event::{self, DisableMouseCapture, EnableMouseCapture, Event},
         execute,
-        style::Stylize,
         terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
     },
     layout::{Alignment, Constraint, Direction, Layout, Margin, Rect},
@@ -27,7 +26,6 @@ use crate::{
     app::{AppMode, AppState, SharedState},
     docker::{stream_logs, stream_stats},
     keybindings::default_keybindings,
-    maxSlidingWindow::MaxSlidingWindow,
 };
 
 pub async fn start_ui(app_state: SharedState) -> Result<(), io::Error> {

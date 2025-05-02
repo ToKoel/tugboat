@@ -114,6 +114,7 @@ mod tests {
     fn esc_exits_search_input_and_clears_input() {
         let mut app = get_app_state();
         app.mode = AppMode::Search;
+        app.last_mode = AppMode::Logs;
         app.search_query = "test".to_string();
         app.handle_input(KeyCode::Esc);
         assert_eq!(AppMode::Logs, app.mode);
@@ -124,6 +125,7 @@ mod tests {
     fn enter_exits_search_input() {
         let mut app = get_app_state();
         app.mode = AppMode::Search;
+        app.last_mode = AppMode::Logs;
         app.search_query = "test".to_string();
         app.handle_input(KeyCode::Enter);
         assert_eq!(AppMode::Logs, app.mode);

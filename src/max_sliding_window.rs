@@ -14,7 +14,6 @@ impl<T> MaxSlidingWindow<T>
 where
     T: Copy + PartialOrd + PartialEq,
 {
-
     pub fn add(&mut self, x: (T, T)) {
         self.data.push_back(x);
         while let Some(&back) = self.max_queue.back() {
@@ -51,7 +50,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     impl<T> MaxSlidingWindow<T>
     where
         T: Copy + PartialOrd + PartialEq,

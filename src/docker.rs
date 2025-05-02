@@ -102,8 +102,6 @@ pub fn stream_stats(container_id: String, app_state: SharedState) -> JoinHandle<
         let stream = &mut docker.stats(&container_id, None);
         let start_time = Instant::now();
 
-        let mut max_sliding_window = MaxSlidingWindow::<f64>::new();
-
         while let Some(result) = stream.next().await {
             match result {
                 Ok(stats) => {
@@ -113,21 +111,12 @@ pub fn stream_stats(container_id: String, app_state: SharedState) -> JoinHandle<
                     let cpu_usage_result = calculate_cpu_usage(cpu_stats, pre_cpu_stats);
                     let mut app = app_state.write().await;
                     if let Some(cpu) = cpu_usage_result {
-                        if app.cpu_data.len() > 60 {
-                            max_sliding_window.remove();
-                            app.cpu_data.pop_front();
-                        }
-                        app.cpu_data.push_back((timestamp, cpu));
-                        max_sliding_window.add(cpu);
-                        app.current_max_cpu = max_sliding_window.get_max();
+                        app.cpu_data.add((timestamp, cpu));
                     }
 
                     let mem = calculate_memory_usage(stats.memory_stats);
                     if let Some(mem) = mem {
-                        if app.mem_data.len() > 60 {
-                            app.mem_data.pop_front();
-                        }
-                        app.mem_data.push_back((timestamp, mem));
+                        app.mem_data.add((timestamp, mem));
                     }
                 }
                 Err(e) => eprintln!("Error: {}", e),

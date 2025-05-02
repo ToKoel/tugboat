@@ -26,7 +26,7 @@ use ratatui::{
 use crate::{
     app::{AppMode, AppState, SharedState},
     docker::{stream_logs, stream_stats},
-    keybindings::default_keybindings,
+    keybindings::default_keybindings, maxSlidingWindow::MaxSlidingWindow,
 };
 
 pub async fn start_ui(app_state: SharedState) -> Result<(), io::Error> {
@@ -111,34 +111,26 @@ fn draw_ui(f: &mut Frame, app_state: &AppState) {
     }
 }
 
-fn draw_resource_graph(f: &mut Frame, area: Rect, app_state: &AppState) {
-    let cpu_points: Vec<(f64, f64)> = app_state.cpu_data.iter().cloned().collect();
-    let cpu_dataset = Dataset::default()
+fn get_stats_graph<'a>(data_points: &'a Vec<(f64,f64)>, max_value: f64, title: &'a str) -> Chart<'a> {
+    let dataset = Dataset::default()
         .marker(symbols::Marker::Braille)
         .graph_type(ratatui::widgets::GraphType::Line)
         .style(Style::default().fg(Color::Cyan))
-        .data(&cpu_points);
-
-    let mem_points: Vec<(f64, f64)> = app_state.mem_data.iter().cloned().collect();
-    let mem_dataset = Dataset::default()
-        .marker(symbols::Marker::Braille)
-        .graph_type(ratatui::widgets::GraphType::Line)
-        .style(Style::default().fg(Color::Cyan))
-        .data(&mem_points);
-
+        .data(&data_points);
+    
     let mut x_start = 0.0;
     let mut x_end = 1.0;
-    if !cpu_points.is_empty() {
-        x_start = cpu_points[0].0;
-        x_end = cpu_points[cpu_points.len() - 1].0;
+    if !data_points.is_empty() {
+        x_start = data_points[0].0;
+        x_end = data_points[data_points.len() - 1].0;
     }
     let rounded_start = x_start.round() as i64;
     let rounded_end = x_end.round() as i64;
 
-    let y_end = app_state.current_max_cpu.unwrap_or(101.0);
+    let y_end = max_value;
     let y_mid = y_end / 2.0;
 
-    let chart = Chart::new(vec![cpu_dataset])
+    Chart::new(vec![dataset])
         .block(Block::default().borders(Borders::NONE))
         .x_axis(
             Axis::default()
@@ -148,27 +140,25 @@ fn draw_resource_graph(f: &mut Frame, area: Rect, app_state: &AppState) {
         )
         .y_axis(
             Axis::default()
-                .title("CPU %")
+                .title(title)
                 .style(Style::default().fg(Color::Gray))
                 .bounds([-1.0, y_end])
-                .labels(vec!["0.0".to_string(), format!("{:.2}", y_mid).into(), format!("{:.2}", y_end).into()]),
-        );
-
-    let mem_chart = Chart::new(vec![mem_dataset])
-        .block(Block::default().borders(Borders::NONE))
-        .x_axis(
-            Axis::default()
-                .title("Time (s)")
-                .bounds([x_start, x_end])
-                .labels(vec![rounded_start.to_string(), rounded_end.to_string()]),
+                .labels(vec![
+                    "0.0".to_string(),
+                    format!("{:.2}", y_mid).into(),
+                    format!("{:.2}", y_end).into(),
+                ]),
         )
-        .y_axis(
-            Axis::default()
-                .title("Memory %")
-                .style(Style::default().fg(Color::Gray))
-                .bounds([-1.0, 101.0])
-                .labels(vec!["0.0".to_string(), "50.0".into(), "100.0".into()]),
-        );
+}
+
+fn draw_resource_graph(f: &mut Frame, area: Rect, app_state: &AppState) {
+    let cpu_points: Vec<(f64, f64)> = app_state.cpu_data.data.iter().cloned().collect();
+    let cpu_max = app_state.cpu_data.get_max().unwrap_or(101.0);
+    let cpu_chart = get_stats_graph(&cpu_points, cpu_max, "CPU %");
+
+    let mem_points: Vec<(f64, f64)> = app_state.mem_data.data.iter().cloned().collect();
+    let mem_max = app_state.mem_data.get_max().unwrap_or(101.0);
+    let mem_chart = get_stats_graph(&mem_points, mem_max, "Memory %");
 
     let overlay_area = centered_rect(80, 80, area);
     let outer_block = Block::default()
@@ -184,7 +174,7 @@ fn draw_resource_graph(f: &mut Frame, area: Rect, app_state: &AppState) {
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
         .split(overlay_area);
 
-    f.render_widget(chart, centered_rect(90, 90, chunks[0]));
+    f.render_widget(cpu_chart, centered_rect(90, 90, chunks[0]));
     f.render_widget(mem_chart, centered_rect(90, 90, chunks[1]));
 }
 

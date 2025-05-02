@@ -4,7 +4,7 @@ use ratatui::crossterm::event::KeyCode;
 use smart_default::SmartDefault;
 use tokio::{sync::RwLock, task::JoinHandle};
 
-use crate::keybindings::default_keybindings;
+use crate::{keybindings::default_keybindings, maxSlidingWindow::MaxSlidingWindow};
 
 #[derive(Clone, Copy, Default, Debug, PartialEq, Eq)]
 pub enum AppMode {
@@ -38,9 +38,8 @@ pub struct AppState {
     pub search_query: String,
     pub search_matches: Vec<usize>,
     pub current_match_index: Option<usize>,
-    pub cpu_data: VecDeque<(f64, f64)>,
-    pub current_max_cpu: Option<f64>,
-    pub mem_data: VecDeque<(f64, f64)>,
+    pub cpu_data: MaxSlidingWindow<f64>,
+    pub mem_data: MaxSlidingWindow<f64>,
     pub stats_task: Option<JoinHandle<()>>,
 }
 

@@ -22,7 +22,7 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
                     app.mode = AppMode::Normal;
                 }
                 AppMode::Search => {
-                    app.mode = AppMode::Logs;
+                    app.mode = app.last_mode;
                     app.search_query.clear();
                     app.search_matches.clear();
                 }
@@ -211,6 +211,17 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
                             app.vertical_scroll =
                                 app.search_matches[app.current_match_index.unwrap()] as u16;
                         }
+                    }
+                }
+                if app.mode == AppMode::Normal {
+                    if let Some(current) = app.current_match_index {
+                        if !app.search_matches.is_empty() {
+                            app.current_match_index =
+                                Some((current + 1) % app.search_matches.len());
+                            app.selected =
+                                app.search_matches[app.current_match_index.unwrap()] as usize;
+                        }
+                        
                     }
                 }
             },

@@ -26,7 +26,8 @@ use ratatui::{
 use crate::{
     app::{AppMode, AppState, SharedState},
     docker::{stream_logs, stream_stats},
-    keybindings::default_keybindings, maxSlidingWindow::MaxSlidingWindow,
+    keybindings::default_keybindings,
+    maxSlidingWindow::MaxSlidingWindow,
 };
 
 pub async fn start_ui(app_state: SharedState) -> Result<(), io::Error> {
@@ -111,13 +112,17 @@ fn draw_ui(f: &mut Frame, app_state: &AppState) {
     }
 }
 
-fn get_stats_graph<'a>(data_points: &'a Vec<(f64,f64)>, max_value: f64, title: &'a str) -> Chart<'a> {
+fn get_stats_graph<'a>(
+    data_points: &'a Vec<(f64, f64)>,
+    max_value: f64,
+    title: &'a str,
+) -> Chart<'a> {
     let dataset = Dataset::default()
         .marker(symbols::Marker::Braille)
         .graph_type(ratatui::widgets::GraphType::Line)
         .style(Style::default().fg(Color::Cyan))
         .data(&data_points);
-    
+
     let mut x_start = 0.0;
     let mut x_end = 1.0;
     if !data_points.is_empty() {

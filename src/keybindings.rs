@@ -221,7 +221,6 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
                             app.selected =
                                 app.search_matches[app.current_match_index.unwrap()] as usize;
                         }
-                        
                     }
                 }
             },

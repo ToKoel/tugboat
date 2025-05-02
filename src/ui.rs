@@ -498,9 +498,22 @@ mod tests {
     }
 
     #[test]
-    fn test_draw_ui_search_mode_snapshot() {
+    fn test_draw_ui_search_logs_mode_snapshot() {
         let mut terminal = Terminal::new(TestBackend::new(80, 20)).unwrap();
-        let app = create_app_state_for_test(&AppMode::Search);
+        let mut app = create_app_state_for_test(&AppMode::Search);
+        app.last_mode = AppMode::Logs;
+
+        terminal.draw(|f| draw_ui(f, &app)).unwrap();
+
+        insta::assert_snapshot!(terminal.backend());
+    }
+    
+    #[test]
+    fn test_draw_ui_search_normal_mode_snapshot() {
+        let mut terminal = Terminal::new(TestBackend::new(80, 20)).unwrap();
+        let mut app = create_app_state_for_test(&AppMode::Search);
+        app.last_mode = AppMode::Normal;
+        app.search_query = "img2".to_string();
 
         terminal.draw(|f| draw_ui(f, &app)).unwrap();
 

@@ -340,7 +340,7 @@ fn draw_normal_mode(f: &mut Frame, area: Rect, app_state: &AppState, blurred: bo
         .iter()
         .enumerate()
         .map(|(i, item)| {
-            let mut matched= false;
+            let mut matched = false;
 
             if let Some(query) =
                 (!app_state.search_query.is_empty()).then_some(&app_state.search_query)
@@ -348,8 +348,8 @@ fn draw_normal_mode(f: &mut Frame, area: Rect, app_state: &AppState, blurred: bo
                 if item.1[1].contains(query) {
                     matched = true;
                 }
-            } 
-            
+            }
+
             let mut style = if i == app_state.selected {
                 Style::default().add_modifier(Modifier::REVERSED)
             } else {

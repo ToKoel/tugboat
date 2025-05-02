@@ -126,36 +126,39 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
                 AppMode::Search => {
                     if app.last_mode == AppMode::Logs {
                         app.search_matches = app
-                        .logs
-                        .iter()
-                        .enumerate()
-                        .filter(|(_, line)| line.contains(&app.search_query))
-                        .map(|(i, _)| i)
-                        .collect();
-                    app.current_match_index = if app.search_matches.is_empty() {
-                        None
+                            .logs
+                            .iter()
+                            .enumerate()
+                            .filter(|(_, line)| line.contains(&app.search_query))
+                            .map(|(i, _)| i)
+                            .collect();
+                        app.current_match_index = if app.search_matches.is_empty() {
+                            None
+                        } else {
+                            Some(app.search_matches[0])
+                        };
+                        if let Some(index) = app.current_match_index {
+                            app.vertical_scroll = app.search_matches[index] as u16;
+                        }
+                        app.mode = AppMode::Logs;
                     } else {
-                        Some(0)
-                    };
-                    if let Some(index) = app.current_match_index {
-                        app.vertical_scroll = app.search_matches[index] as u16;
+                        app.search_matches = app
+                            .container_data
+                            .iter()
+                            .enumerate()
+                            .filter(|(_, data)| data.1[1].contains(&app.search_query))
+                            .map(|(i, _)| i)
+                            .collect();
+                        app.current_match_index = if app.search_matches.is_empty() {
+                            None
+                        } else {
+                            Some(app.search_matches[0])
+                        };
+                        if let Some(index) = app.current_match_index {
+                            app.selected = index;
+                        }
+                        app.mode = AppMode::Normal;
                     }
-                    app.mode = AppMode::Logs;
-                } else {
-                    app.search_matches = app.container_data.iter().enumerate()
-                    .filter(|(_, data)| data.1[1].contains(&app.search_query))
-                    .map(|(i, _)| i)
-                    .collect();
-                    app.current_match_index = if app.search_matches.is_empty() {
-                        None
-                    } else {
-                        Some(0)
-                    };
-                    if let Some(index) = app.current_match_index {
-                        app.selected = index;
-                    }
-                    app.mode = AppMode::Normal;
-                }
                 }
                 _ => {}
             },

@@ -24,7 +24,7 @@ use ratatui::{
 
 use crate::{
     app::{AppMode, AppState, SharedState},
-    docker::{stream_logs, stream_stats},
+    docker::{get_container_data, stream_logs, stream_stats},
     keybindings::default_keybindings,
 };
 
@@ -48,6 +48,8 @@ pub async fn start_ui(app_state: SharedState) -> Result<(), io::Error> {
 
         if event::poll(Duration::from_millis(200))? {
             let mut app = app_state.write().await;
+            let container_data = get_container_data().await;
+            app.container_data = container_data.unwrap_or(Vec::new());
             if let Event::Key(key_event) = event::read()? {
                 app.handle_input(key_event.code);
                 if app.mode == AppMode::Logs && app.logs == vec!["Loading logs...".to_string()] {

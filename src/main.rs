@@ -7,14 +7,11 @@ mod ui;
 use std::{error::Error, sync::Arc};
 
 use app::AppState;
-use docker::get_container_data;
 use tokio::sync::RwLock;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let container_data = get_container_data().await?;
     let app_state = Arc::new(RwLock::new(AppState {
-        container_data,
         ..Default::default()
     }));
 

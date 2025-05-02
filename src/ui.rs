@@ -98,9 +98,14 @@ fn draw_ui(f: &mut Frame, app_state: &AppState) {
             draw_logs_mode(f, area, app_state);
         }
         AppMode::Search => {
-            draw_normal_mode(f, area, app_state, true);
-            let log_area = draw_logs_mode(f, area, app_state);
-            draw_search_mode(f, log_area, app_state);
+            let mut rect;
+            if app_state.last_mode == AppMode::Logs {
+                rect = draw_normal_mode(f, area, app_state, true);
+                rect = draw_logs_mode(f, area, app_state);
+            } else {
+                rect = draw_normal_mode(f, area, app_state, false);
+            }
+            draw_search_mode(f, rect, app_state);
         }
         AppMode::Help => {
             draw_help(f, area);
@@ -323,7 +328,7 @@ fn get_constraints(percent: u16) -> Vec<Constraint> {
     ]
 }
 
-fn draw_normal_mode(f: &mut Frame, area: Rect, app_state: &AppState, blurred: bool) {
+fn draw_normal_mode(f: &mut Frame, area: Rect, app_state: &AppState, blurred: bool) -> Rect {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .margin(1)
@@ -335,6 +340,16 @@ fn draw_normal_mode(f: &mut Frame, area: Rect, app_state: &AppState, blurred: bo
         .iter()
         .enumerate()
         .map(|(i, item)| {
+            let mut matched= false;
+
+            if let Some(query) =
+                (!app_state.search_query.is_empty()).then_some(&app_state.search_query)
+            {
+                if item.1[1].contains(query) {
+                    matched = true;
+                }
+            } 
+            
             let mut style = if i == app_state.selected {
                 Style::default().add_modifier(Modifier::REVERSED)
             } else {
@@ -342,6 +357,9 @@ fn draw_normal_mode(f: &mut Frame, area: Rect, app_state: &AppState, blurred: bo
             };
             if blurred {
                 style = style.add_modifier(Modifier::DIM);
+            }
+            if matched {
+                style = style.bg(Color::Cyan);
             }
             Row::new(
                 item.1
@@ -381,6 +399,7 @@ fn draw_normal_mode(f: &mut Frame, area: Rect, app_state: &AppState, blurred: bo
         );
 
     f.render_widget(table, chunks[0]);
+    area
 }
 
 #[cfg(test)]

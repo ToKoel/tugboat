@@ -124,7 +124,8 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
                     _ => {}
                 },
                 AppMode::Search => {
-                    app.search_matches = app
+                    if app.last_mode == AppMode::Logs {
+                        app.search_matches = app
                         .logs
                         .iter()
                         .enumerate()
@@ -140,6 +141,21 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
                         app.vertical_scroll = app.search_matches[index] as u16;
                     }
                     app.mode = AppMode::Logs;
+                } else {
+                    app.search_matches = app.container_data.iter().enumerate()
+                    .filter(|(_, data)| data.1[1].contains(&app.search_query))
+                    .map(|(i, _)| i)
+                    .collect();
+                    app.current_match_index = if app.search_matches.is_empty() {
+                        None
+                    } else {
+                        Some(0)
+                    };
+                    if let Some(index) = app.current_match_index {
+                        app.selected = index;
+                    }
+                    app.mode = AppMode::Normal;
+                }
                 }
                 _ => {}
             },
@@ -166,11 +182,18 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
         KeyBinding {
             keys: vec![KeyCode::Char('/')],
             description: "Open search",
-            action: |app, _| {
-                if app.mode == AppMode::Logs {
+            action: |app, _| match app.mode {
+                AppMode::Logs => {
+                    app.last_mode = AppMode::Logs;
                     app.mode = AppMode::Search;
                     app.search_query.clear();
                 }
+                AppMode::Normal => {
+                    app.last_mode = AppMode::Normal;
+                    app.mode = AppMode::Search;
+                    app.search_query.clear();
+                }
+                _ => {}
             },
         },
         KeyBinding {

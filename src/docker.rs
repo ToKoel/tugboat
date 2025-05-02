@@ -1,7 +1,6 @@
 use bollard::Docker as BollardDocker;
 use bollard::container::{CPUStats, MemoryStats, MemoryStatsStats};
 use futures::StreamExt;
-use std::cmp::max;
 use std::{error::Error, pin::Pin};
 use tokio::time::{Duration, Instant};
 use tokio::{task::JoinHandle, time};
@@ -12,7 +11,6 @@ use strip_ansi_escapes::strip;
 use async_trait::async_trait;
 
 use crate::app::SharedState;
-use crate::maxSlidingWindow::{self, MaxSlidingWindow};
 
 const MAX_LOG_LINES: usize = 1000;
 const CLEANUP_THRESHOLD: usize = 100;

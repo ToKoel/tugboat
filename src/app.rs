@@ -1,10 +1,10 @@
-use std::{collections::VecDeque, sync::Arc};
+use std::sync::Arc;
 
 use ratatui::crossterm::event::KeyCode;
 use smart_default::SmartDefault;
 use tokio::{sync::RwLock, task::JoinHandle};
 
-use crate::{keybindings::default_keybindings, maxSlidingWindow::MaxSlidingWindow};
+use crate::{keybindings::default_keybindings, max_sliding_window::MaxSlidingWindow};
 
 #[derive(Clone, Copy, Default, Debug, PartialEq, Eq)]
 pub enum AppMode {

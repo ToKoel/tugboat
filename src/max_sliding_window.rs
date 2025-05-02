@@ -14,13 +14,6 @@ impl<T> MaxSlidingWindow<T>
 where
     T: Copy + PartialOrd + PartialEq,
 {
-    pub fn new(capacity: usize) -> Self {
-        Self {
-            data: VecDeque::new(),
-            max_queue: VecDeque::new(),
-            capacity,
-        }
-    }
 
     pub fn add(&mut self, x: (T, T)) {
         self.data.push_back(x);
@@ -48,7 +41,7 @@ where
     pub fn get_max(&self) -> Option<T> {
         self.max_queue.front().copied()
     }
-    
+
     pub fn clear(&mut self) {
         self.data.clear();
         self.max_queue.clear();
@@ -58,6 +51,19 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    
+    impl<T> MaxSlidingWindow<T>
+    where
+        T: Copy + PartialOrd + PartialEq,
+    {
+        pub fn new(capacity: usize) -> Self {
+            Self {
+                data: VecDeque::new(),
+                max_queue: VecDeque::new(),
+                capacity,
+            }
+        }
+    }
 
     #[test]
     fn add_pushes_to_queue_and_updates_largest() {
@@ -73,7 +79,7 @@ mod tests {
         max_sliding_window.add((4.0, 11.0));
         assert_eq!(12.0, max_sliding_window.get_max().unwrap());
     }
-    
+
     #[test]
     fn clear_removes_data() {
         let mut sliding_window = MaxSlidingWindow::new(1);

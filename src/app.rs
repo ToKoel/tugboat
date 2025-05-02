@@ -59,6 +59,7 @@ impl AppState {
             }
             if binding.keys.contains(&key) {
                 (binding.action)(self, &key);
+                break;
             }
         }
     }

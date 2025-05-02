@@ -440,14 +440,14 @@ mod tests {
 
         insta::assert_snapshot!(terminal.backend());
     }
-    
+
     #[test]
     fn test_draw_ui_stats_mode_snapshot() {
         let mut terminal = Terminal::new(TestBackend::new(80, 20)).unwrap();
         let mut app = create_app_state_for_test(&AppMode::Resources);
         app.cpu_data.add((1.0, 10.0));
         app.cpu_data.add((10.0, 40.0));
-        
+
         app.mem_data.add((1.0, 5.0));
         app.mem_data.add((10.0, 32.0));
 

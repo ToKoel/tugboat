@@ -152,7 +152,7 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
                         app.current_match_index = if app.search_matches.is_empty() {
                             None
                         } else {
-                            Some(app.search_matches[0])
+                            Some(0)
                         };
                         if let Some(index) = app.current_match_index {
                             app.selected = index;
@@ -204,24 +204,10 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
             description: "Jump to next match",
             action: |app, _| match app.mode {
                 AppMode::Logs => {
-                    if let Some(current) = app.current_match_index {
-                        if !app.search_matches.is_empty() {
-                            app.current_match_index =
-                                Some((current + 1) % app.search_matches.len());
-                            app.vertical_scroll =
-                                app.search_matches[app.current_match_index.unwrap()] as u16;
-                        }
-                    }
+                    jump_to_match(true, app);
                 }
                 AppMode::Normal => {
-                    if let Some(current) = app.current_match_index {
-                        if !app.search_matches.is_empty() {
-                            app.current_match_index =
-                                Some((current + 1) % app.search_matches.len());
-                            app.selected =
-                                app.search_matches[app.current_match_index.unwrap()] as usize;
-                        }
-                    }
+                    jump_to_match(true, app);
                 }
                 _ => {}
             },
@@ -231,24 +217,10 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
             description: "Jump to previous match",
             action: |app, _| match app.mode {
                 AppMode::Logs => {
-                    if let Some(current) = app.current_match_index {
-                        if !app.search_matches.is_empty() {
-                            let len = app.search_matches.len();
-                            app.current_match_index = Some((current + len - 1) % len);
-                            app.vertical_scroll =
-                                app.search_matches[app.current_match_index.unwrap()] as u16
-                        }
-                    }
+                    jump_to_match(false, app);
                 }
                 AppMode::Normal => {
-                    if let Some(current) = app.current_match_index {
-                        if !app.search_matches.is_empty() {
-                            let len = app.search_matches.len();
-                            app.current_match_index = Some((current + len - 1) % len);
-                            app.selected =
-                                app.search_matches[app.current_match_index.unwrap()] as usize;
-                        }
-                    }
+                    jump_to_match(false, app);
                 }
                 _ => {}
             },
@@ -263,3 +235,24 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
         },
     ]
 }
+
+fn jump_to_match(next: bool, app: &mut AppState) {
+    if let Some(current) = app.current_match_index {
+        if app.search_matches.is_empty() {
+            return;
+        }
+        let len = app.search_matches.len();
+        app.current_match_index = if next {
+            Some((current + 1) % len)
+        } else {
+             Some((current + len - 1) % len)
+        };
+
+        let new_index = app.search_matches[app.current_match_index.unwrap()] as u16;
+        if app.mode == AppMode::Logs {
+            app.vertical_scroll = new_index;
+        } else {
+            app.selected = new_index as usize;
+        }
+    }
+} 

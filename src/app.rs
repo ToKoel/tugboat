@@ -176,6 +176,48 @@ mod tests {
     }
 
     #[test]
+    fn jumps_to_next_match_logs_mode() {
+        let mut app = get_app_state();
+        app.mode = AppMode::Logs;
+        app.search_matches = vec![1, 2];
+        app.current_match_index = Some(0);
+        app.handle_input(KeyCode::Char('n'));
+        assert_eq!(Some(1), app.current_match_index);
+        assert_eq!(2, app.vertical_scroll);
+    }
+    
+    #[test]
+    fn jumps_to_previous_match_logs_mode() {
+        let mut app = get_app_state();
+        app.mode = AppMode::Logs;
+        app.search_matches = vec![1, 2];
+        app.current_match_index = Some(1);
+        app.handle_input(KeyCode::Char('N'));
+        assert_eq!(Some(0), app.current_match_index);
+        assert_eq!(1, app.vertical_scroll);
+    }
+    
+    #[test]
+    fn jump_to_next_match_normal_mode() {
+        let mut app = get_app_state();
+        app.mode = AppMode::Normal;
+        app.search_matches = vec![1, 2];
+        app.current_match_index = Some(0);
+        app.handle_input(KeyCode::Char('n'));
+        assert_eq!(Some(1), app.current_match_index);
+    }
+    
+    #[test]
+    fn jump_to_previous_match_normal_mode() {
+        let mut app = get_app_state();
+        app.mode = AppMode::Normal;
+        app.search_matches = vec![1, 2];
+        app.current_match_index = Some(1);
+        app.handle_input(KeyCode::Char('N'));
+        assert_eq!(Some(0), app.current_match_index);
+    }
+
+    #[test]
     fn handle_input_scroll_up() {
         let mut app = get_app_state();
         app.selected = 1;

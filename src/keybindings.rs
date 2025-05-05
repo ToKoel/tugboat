@@ -135,7 +135,7 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
                         app.current_match_index = if app.search_matches.is_empty() {
                             None
                         } else {
-                            Some(app.search_matches[0])
+                            Some(0)
                         };
                         if let Some(index) = app.current_match_index {
                             app.vertical_scroll = app.search_matches[index] as u16;
@@ -202,8 +202,8 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
         KeyBinding {
             keys: vec![KeyCode::Char('n')],
             description: "Jump to next match",
-            action: |app, _| {
-                if app.mode == AppMode::Logs {
+            action: |app, _| match app.mode {
+                AppMode::Logs => {
                     if let Some(current) = app.current_match_index {
                         if !app.search_matches.is_empty() {
                             app.current_match_index =
@@ -213,7 +213,7 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
                         }
                     }
                 }
-                if app.mode == AppMode::Normal {
+                AppMode::Normal => {
                     if let Some(current) = app.current_match_index {
                         if !app.search_matches.is_empty() {
                             app.current_match_index =
@@ -223,13 +223,14 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
                         }
                     }
                 }
+                _ => {}
             },
         },
         KeyBinding {
             keys: vec![KeyCode::Char('N')],
             description: "Jump to previous match",
-            action: |app, _| {
-                if app.mode == AppMode::Logs {
+            action: |app, _| match app.mode {
+                AppMode::Logs => {
                     if let Some(current) = app.current_match_index {
                         if !app.search_matches.is_empty() {
                             let len = app.search_matches.len();
@@ -239,6 +240,17 @@ pub fn default_keybindings() -> Vec<KeyBinding> {
                         }
                     }
                 }
+                AppMode::Normal => {
+                    if let Some(current) = app.current_match_index {
+                        if !app.search_matches.is_empty() {
+                            let len = app.search_matches.len();
+                            app.current_match_index = Some((current + len - 1) % len);
+                            app.selected =
+                                app.search_matches[app.current_match_index.unwrap()] as usize;
+                        }
+                    }
+                }
+                _ => {}
             },
         },
         KeyBinding {

@@ -34,12 +34,16 @@ pub async fn start_ui(app_state: SharedState) -> Result<(), io::Error> {
     execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
+    let mut visible_height = None;
 
     loop {
         {
             let app = app_state.read().await;
             terminal.draw(|f| {
                 draw_ui(f, &app);
+                let area = f.area();
+                let overlay_area = centered_rect(80, 80, area);
+                visible_height = Some(overlay_area.height.saturating_sub(2));
             })?;
             if !app.running {
                 break;
@@ -53,13 +57,7 @@ pub async fn start_ui(app_state: SharedState) -> Result<(), io::Error> {
             if let Event::Key(key_event) = event::read()? {
                 app.handle_input(key_event.code);
                 if app.mode == AppMode::Logs && app.logs == vec!["Loading logs...".to_string()] {
-                    terminal.draw(|f| {
-                        draw_ui(f, &app);
-                        let area = f.area();
-                        let overlay_area = centered_rect(80, 80, area);
-                        let visible_height = overlay_area.height.saturating_sub(2);
-                        app.visible_height = visible_height;
-                    })?;
+                    app.visible_height = visible_height.unwrap_or(1);
 
                     let container_id = app.container_data[app.selected].0.clone();
                     let log_task = stream_logs(container_id, app_state.clone());
@@ -507,7 +505,7 @@ mod tests {
 
         insta::assert_snapshot!(terminal.backend());
     }
-    
+
     #[test]
     fn test_draw_ui_search_normal_mode_snapshot() {
         let mut terminal = Terminal::new(TestBackend::new(80, 20)).unwrap();

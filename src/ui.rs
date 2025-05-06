@@ -101,7 +101,7 @@ fn draw_ui(f: &mut Frame, app_state: &AppState) {
             let mut rect;
             if app_state.last_mode == AppMode::Logs {
                 rect = draw_normal_mode(f, area, app_state, true);
-                rect = draw_logs_mode(f, area, app_state);
+                rect = draw_logs_mode(f, rect, app_state);
             } else {
                 rect = draw_normal_mode(f, area, app_state, false);
             }

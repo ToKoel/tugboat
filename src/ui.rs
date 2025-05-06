@@ -148,6 +148,8 @@ fn draw_logs_mode(f: &mut Frame, area: Rect, app_state: &AppState) {
         app_state.vertical_scroll
     };
 
+    let vertical_scroll = (logs_len - visible_height as usize) as u16;
+
     let paragraph = Paragraph::new(log_spans)
         .block(
             Block::default()
@@ -155,11 +157,10 @@ fn draw_logs_mode(f: &mut Frame, area: Rect, app_state: &AppState) {
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Cyan)),
         )
-        .scroll((effective_vertical_scroll, app_state.horizontal_scroll));
+        .scroll((vertical_scroll, app_state.horizontal_scroll));
 
     let scrollbar = Scrollbar::new(ratatui::widgets::ScrollbarOrientation::VerticalRight);
-    let mut scrollbar_state =
-        ScrollbarState::new(logs_len).position(effective_vertical_scroll.into());
+    let mut scrollbar_state = ScrollbarState::new(logs_len).position(vertical_scroll.into());
 
     f.render_widget(Clear, overlay_area);
     f.render_widget(paragraph, overlay_area);
